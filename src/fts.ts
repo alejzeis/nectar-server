@@ -35,32 +35,35 @@ export class FileTransferManager {
             this.rootDir = util.getConfigDirLocation(process.env.NECTAR_USE_SYSTEM) + "/" + this.rootDir;
         }
 
+        var continueChecks: boolean = true;
+
         fs.access(this.rootDir, fs.constants.F_OK | fs.constants.R_OK | fs.constants.W_OK, (err) => {
             if(err) {
                 if(!fs.existsSync(this.rootDir)) {
+                    continueChecks = false; // No need to check more, we are about to create the directories (or fail doing so)
                     fs.mkdir(this.rootDir, (err) => {
                         if(err) {
                             this.server.logger.error("Attempted to create FTS directory: " + this.rootDir +", but failed!");
                             this.server.logger.error("Please check filesystem permissions!");
                             process.exit(1);
+                        } else {
+                            // Create the public directory if it didn't fail
+                            fs.mkdirSync(this.rootDir + "/public"); // No need to check for errors, because the above mkdir did not fail
                         }
                     });
+                    return; // Created the new directories, continue
                 }
                 this.server.logger.error("Nectar can't see/read/write the FTS directory: " + this.rootDir);
                 this.server.logger.error("Please check filesystem permissions!");
                 process.exit(1);
             }
-        });
 
-        if(!fs.existsSync(this.rootDir + "/public")) {
-            fs.mkdir(this.rootDir + "/public", (err) => {
-                if(err) {
-                    this.server.logger.error("Attempted to create FTS public directory: " + this.rootDir +"/public, but failed!");
-                    this.server.logger.error("Please check filesystem permissions!");
-                    process.exit(1);
-                }
-            });
-        }
+            if(continueChecks && !fs.existsSync(this.rootDir + "/public")) {
+                this.server.logger.error("Nectar can't see/read/write the FTS public directory: " + this.rootDir + "/public");
+                this.server.logger.error("Please check filesystem permissions!");
+                process.exit(1);
+            }
+        });
     }
 
     private fileDownloadHandler(request: express.Request, response: express.Response) {
