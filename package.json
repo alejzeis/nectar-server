@@ -1,8 +1,7 @@
 {
   "name": "nectar-server",
-  "version": "1.0.0",
+  "version": "0.1.2-alpha1",
   "description": "The nectar project server",
-  "main": "server.js",
   "author": "jython234",
   "dependencies": {
     "@types/busboy": "^0.2.3",

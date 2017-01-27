@@ -13,7 +13,7 @@ import * as fts from "./fts";
 import * as util from "./util";
 
 export const SOFTWARE = "Nectar-Server"
-export const SOFTWARE_VERSION = "1.0-alpha-1";
+export const SOFTWARE_VERSION = "0.1.2-alpha1";
 export const API_VERSION_MAJOR = "1";
 export const API_VERSION_MINOR = "2";
 
