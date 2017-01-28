@@ -42,7 +42,7 @@ export class ClientManager {
 
         jsonwebtoken.verify(request.query.token, this.server.serverPublicKey, (err: any, decoded:any) => {
             if(err) {
-                response.sendStatus(400).send("Failed to verify token.");
+                response.status(400).send("Failed to verify token.");
             } else {
                 if(!this.server.clients.has(decoded.uuid)) {
                     response.status(403).send("Token Expired!"); // 403: Forbidden
