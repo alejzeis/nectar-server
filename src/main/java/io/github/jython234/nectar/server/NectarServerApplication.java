@@ -28,12 +28,14 @@
  */
 package io.github.jython234.nectar.server;
 
-import io.github.jython234.nectar.server.struct.ServerInformation;
+import io.github.jython234.nectar.server.struct.PeerInformation;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * Created by jython234 on 1/28/17.
+ * Main Application class.
+ *
+ * @author jython234
  */
 @SpringBootApplication
 public class NectarServerApplication {
@@ -44,22 +46,23 @@ public class NectarServerApplication {
     public static final int API_VERSION_MINOR = 3;
     public static final String ROOT_PATH = "/nectar/api/" + API_VERSION_MAJOR + "/" + API_VERSION_MINOR;
 
-    public static final ServerInformation SERVER_INFORMATION = generateServerInfo();
+    public static final PeerInformation SERVER_INFORMATION = generateServerInfo();
 
     public static void main(String[] args) {
         SpringApplication.run(NectarServerApplication.class, args);
     }
 
-    private static ServerInformation generateServerInfo() {
-        return new ServerInformation(
+    private static PeerInformation generateServerInfo() {
+        return new PeerInformation(
                 SOFTWARE,
                 SOFTWARE_VERSION,
                 API_VERSION_MAJOR,
                 API_VERSION_MINOR,
-                new ServerInformation.SystemInfo(
+                new PeerInformation.SystemInfo(
                         System.getProperty("java.version"),
                         System.getenv("os.arch"),
                         System.getenv("os.name"),
+                        "unknown", // TODO: Parse /proc/cpuinfo
                         Runtime.getRuntime().availableProcessors()
                 )
         );

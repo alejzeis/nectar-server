@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
  * @author jython234
  */
 @RequiredArgsConstructor
-public class ServerInformation {
+public class PeerInformation {
     @Getter private final String software;
     @Getter private final String softwareVersion;
     @Getter private final int apiVersionMajor;
@@ -21,6 +21,7 @@ public class ServerInformation {
         @Getter private final String runtime;
         @Getter private final String arch;
         @Getter private final String os;
+        @Getter private final String cpu;
         @Getter private final int cpus;
     }
 }
