@@ -1,6 +1,5 @@
 package io.github.jython234.nectar.server.controller;
 
-import com.auth0.jwt.algorithms.Algorithm;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.struct.PeerInformation;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,13 +17,6 @@ import java.security.PublicKey;
  */
 @RestController
 public class SessionController {
-
-    private PrivateKey privateKey;
-    private PublicKey publicKey;
-
-    public SessionController() {
-
-    }
 
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/tokenRequest")
     public String tokenRequest(@RequestParam(value="uuid") String uuid, @RequestParam(value="clientInfo") PeerInformation info) {

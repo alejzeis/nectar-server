@@ -29,8 +29,15 @@
 package io.github.jython234.nectar.server;
 
 import io.github.jython234.nectar.server.struct.PeerInformation;
+import lombok.Getter;
+import org.apache.commons.io.FileUtils;
+import org.ini4j.Ini;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * Main Application class.
@@ -48,8 +55,44 @@ public class NectarServerApplication {
 
     public static final PeerInformation SERVER_INFORMATION = generateServerInfo();
 
+    @Getter private static String configDir;
+    @Getter private static NectarServerConfiguration configuration;
+
     public static void main(String[] args) {
+        try {
+            loadConfig();
+        } catch (IOException e) {
+            System.err.println("Failed to load configuration! IOException");
+            e.printStackTrace(System.err);
+            System.exit(1);
+        }
+
         SpringApplication.run(NectarServerApplication.class, args);
+    }
+
+    private static void loadConfig() throws IOException {
+        determineConfigDir();
+
+        File configFile = new File(configDir + "/server.ini");
+        if(!configFile.exists() || !configFile.isFile()) {
+            // Copy default config to config directory
+            InputStream in = ClassLoader.getSystemResourceAsStream("default.ini");
+            FileUtils.copyInputStreamToFile(in, configFile);
+        }
+
+        Ini conf = new Ini();
+        conf.load(configFile);
+
+        configuration = new NectarServerConfiguration(conf);
+    }
+
+    private static void determineConfigDir() {
+        boolean useSystem = Boolean.parseBoolean(System.getenv("NECTAR_USE_SYSTEM"));
+        if(useSystem) {
+            configDir = "/etc/nectar-server/"; // TODO: Windows Support
+        } else {
+            configDir = System.getProperty("user.dir");
+        }
     }
 
     private static PeerInformation generateServerInfo() {
