@@ -86,10 +86,9 @@ public class NectarServerConfiguration {
 
     private PrivateKey loadPrivateKey(String location) {
         try {
-            // Strip the guarding strings
-            byte[] bytes = stripGuardLines(location);
+            PemObject pem = new PemReader(new FileReader(location)).readPemObject();
 
-            return KeyFactory.getInstance("ECDH").generatePrivate(new PKCS8EncodedKeySpec(bytes));
+            return KeyFactory.getInstance("EC", "BC").generatePrivate(new PKCS8EncodedKeySpec(pem.getContent()));
         } catch (FileNotFoundException e) {
             LoggerFactory.getLogger("Nectar").error("Failed to find Private KEY: " + location);
             System.exit(1);
@@ -97,7 +96,7 @@ public class NectarServerConfiguration {
             LoggerFactory.getLogger("Nectar").error("IOException while loading Private Key!");
             e.printStackTrace();
             System.exit(1);
-        } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException | NoSuchProviderException e) {
             LoggerFactory.getLogger("Nectar").error("Failed to load private key: " + location);
             e.printStackTrace();
             System.exit(1);
