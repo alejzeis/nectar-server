@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,6 +46,7 @@ import java.io.IOException;
  * @author jython234
  */
 @SpringBootApplication
+@EnableScheduling
 public class NectarServerApplication {
     public static final String SOFTWARE = "Nectar-Server";
     public static final String SOFTWARE_VERSION = "0.1.0-SNAPSHOT";
