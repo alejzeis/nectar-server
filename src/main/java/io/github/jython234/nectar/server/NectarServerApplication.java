@@ -30,14 +30,14 @@ package io.github.jython234.nectar.server;
 
 import io.github.jython234.nectar.server.struct.PeerInformation;
 import lombok.Getter;
-import org.apache.commons.io.FileUtils;
 import org.ini4j.Ini;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 
 /**
  * Main Application class.
@@ -55,10 +55,22 @@ public class NectarServerApplication {
 
     public static final PeerInformation SERVER_INFORMATION = generateServerInfo();
 
+    @Getter private static Logger logger;
     @Getter private static String configDir;
     @Getter private static NectarServerConfiguration configuration;
 
     public static void main(String[] args) {
+        logger = LoggerFactory.getLogger("Nectar");
+
+        try {
+            System.out.println(Util.getResourceContents("header.txt"));
+        } catch(IOException e) {
+            // Don't worry about failing to print the header
+        }
+
+        logger.info("Starting " + SOFTWARE + " version " + SOFTWARE_VERSION +" implementing API "
+                + API_VERSION_MAJOR + "-" + API_VERSION_MINOR);
+
         try {
             loadConfig();
         } catch (IOException e) {
@@ -66,6 +78,8 @@ public class NectarServerApplication {
             e.printStackTrace(System.err);
             System.exit(1);
         }
+
+        logger.info("Starting SpringApplication...");
 
         SpringApplication.run(NectarServerApplication.class, args);
     }
@@ -75,9 +89,7 @@ public class NectarServerApplication {
 
         File configFile = new File(configDir + "/server.ini");
         if(!configFile.exists() || !configFile.isFile()) {
-            // Copy default config to config directory
-            InputStream in = ClassLoader.getSystemResourceAsStream("default.ini");
-            FileUtils.copyInputStreamToFile(in, configFile);
+            Util.copyResourceTo("default.ini", configFile);
         }
 
         Ini conf = new Ini();

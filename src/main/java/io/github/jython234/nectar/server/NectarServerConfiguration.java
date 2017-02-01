@@ -1,25 +1,18 @@
 package io.github.jython234.nectar.server;
 
-import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import org.bouncycastle.asn1.sec.ECPrivateKey;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.ini4j.Ini;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.crypto.spec.PBEKeySpec;
 import java.io.*;
 import java.security.*;
-import java.security.spec.ECPrivateKeySpec;
+import java.security.interfaces.ECPrivateKey;
+import java.security.interfaces.ECPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
 
 /**
  * Class which holds the values from the
@@ -43,10 +36,10 @@ public class NectarServerConfiguration {
     @Getter private final String serverPublicKeyLocation;
     @Getter private final String clientPublicKeyLocation;
 
-    @Getter private PrivateKey serverPrivateKey;
-    @Getter private PublicKey serverPublicKey;
+    @Getter private ECPrivateKey serverPrivateKey;
+    @Getter private ECPublicKey serverPublicKey;
 
-    @Getter private PublicKey clientPublicKey;
+    @Getter private ECPublicKey clientPublicKey;
 
     // FTS Section ---------------------------------------------
     @Getter private final String ftsDirectory;
@@ -81,14 +74,14 @@ public class NectarServerConfiguration {
         this.serverPublicKey = loadPublicKey(this.serverPublicKeyLocation);
         this.clientPublicKey = loadPublicKey(this.clientPublicKeyLocation);
 
-        LoggerFactory.getLogger("Nectar").info("Loaded keys.");
+        NectarServerApplication.getLogger().info("Loaded keys.");
     }
 
-    private PrivateKey loadPrivateKey(String location) {
+    private ECPrivateKey loadPrivateKey(String location) {
         try {
             PemObject pem = new PemReader(new FileReader(location)).readPemObject();
 
-            return KeyFactory.getInstance("EC", "BC").generatePrivate(new PKCS8EncodedKeySpec(pem.getContent()));
+            return (ECPrivateKey) KeyFactory.getInstance("EC", "BC").generatePrivate(new PKCS8EncodedKeySpec(pem.getContent()));
         } catch (FileNotFoundException e) {
             LoggerFactory.getLogger("Nectar").error("Failed to find Private KEY: " + location);
             System.exit(1);
@@ -105,11 +98,11 @@ public class NectarServerConfiguration {
         return null;
     }
 
-    private PublicKey loadPublicKey(String location) {
+    private ECPublicKey loadPublicKey(String location) {
         try {
-            Reader r = new FileReader(location);
-            PemObject spki = new PemReader(r).readPemObject();
-            return KeyFactory.getInstance("EC", "BC").generatePublic(new X509EncodedKeySpec(spki.getContent()));
+            PemObject spki = new PemReader(new FileReader(location)).readPemObject();
+
+            return (ECPublicKey) KeyFactory.getInstance("EC", "BC").generatePublic(new X509EncodedKeySpec(spki.getContent()));
         } catch (FileNotFoundException e) {
             LoggerFactory.getLogger("Nectar").error("Failed to find Private KEY: " + location);
             System.exit(1);
@@ -123,22 +116,6 @@ public class NectarServerConfiguration {
         }
 
         return null;
-    }
-
-    private byte[] stripGuardLines(String location) throws IOException {
-        BufferedReader r = new BufferedReader(new FileReader(location));
-
-        String line;
-        StringBuilder sb = new StringBuilder();
-        while((line = r.readLine()) != null) {
-            if(line.contains("EC PRIVATE KEY")) { //Check if guard line
-                continue;
-            }
-            sb.append(line);
-        }
-        // Guard lines stripped, now decode base64
-
-        return Base64.getDecoder().decode(sb.toString());
     }
 
     public static NectarServerConfiguration getInstance() {
