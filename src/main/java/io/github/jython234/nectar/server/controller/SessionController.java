@@ -1,10 +1,13 @@
 package io.github.jython234.nectar.server.controller;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import io.jsonwebtoken.*;
 import lombok.AccessLevel;
 import lombok.Getter;
+import org.bson.Document;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -89,6 +92,18 @@ public class SessionController {
 
         // Verify "uuid"
         // TODO: Check MongoDB database for UUID
+
+        MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+        Document doc = clients.find(Filters.eq("uuid", uuid)).first();
+        if(doc == null) {
+            // We can't find this client in the database
+            // This means that the client is unregistered, so we drop the request
+            NectarServerApplication.getLogger().warn("Received token request from unregistered client "
+                    + request.getRemoteAddr() + " with UUID: " + uuid
+            );
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("UUID not found in database.");
+        }
+
         try {
             UUID.fromString(uuid);
         } catch(IllegalArgumentException e) {
