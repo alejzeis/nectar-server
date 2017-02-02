@@ -1,4 +1,4 @@
-package io.github.jython234.nectar.server;
+package io.github.jython234.nectar.server.config;
 
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;

@@ -2,12 +2,15 @@ package io.github.jython234.nectar.server.controller;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import io.github.jython234.nectar.server.ClientSession;
 import io.github.jython234.nectar.server.NectarServerApplication;
+import io.github.jython234.nectar.server.struct.ClientState;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import io.jsonwebtoken.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.bson.Document;
+import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,21 +33,22 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SessionController {
     @Getter(AccessLevel.PROTECTED) private static SessionController instance;
 
-    private Map<String, SessionToken> tokens;
+    private Map<String, ClientSession> sessions;
 
     public SessionController() {
-        this.tokens = new ConcurrentHashMap<>();
+        this.sessions = new ConcurrentHashMap<>();
 
         instance = this;
     }
 
     @Scheduled(fixedDelay = 500) // Check for tokens every half second
     public void checkTokens() {
-        tokens.values().forEach((SessionToken token) -> {
+        sessions.values().forEach((ClientSession session) -> {
+            SessionToken token = session.getToken();
             if((System.currentTimeMillis() - token.getTimestamp()) >= token.getExpires()) { // Check if the token has expired
-                // Token has expired, revoke it
-                NectarServerApplication.getLogger().info("Token for " + token.getUuid() + " has expired.");
-                tokens.remove(token.getUuid());
+                // Session Token has expired, revoke it
+                NectarServerApplication.getLogger().info("Token for " + token.getUuid() + " has expired, session removed.");
+                sessions.remove(token.getUuid());
             }
         });
     }
@@ -56,10 +60,10 @@ public class SessionController {
      * @return If the token has been found and verified issued.
      */
     public boolean checkToken(SessionToken token) {
-        for(SessionToken session : tokens.values()) {
-            if(session.getUuid().equals(token.getUuid())
-                    && session.getTimestamp() == token.getTimestamp()
-                    && session.getExpires() == token.getExpires()) {
+        for(ClientSession session : sessions.values()) {
+            if(session.getToken().getUuid().equals(token.getUuid())
+                    && session.getToken().getTimestamp() == token.getTimestamp()
+                    && session.getToken().getExpires() == token.getExpires()) {
                 return true;
             }
         }
@@ -69,29 +73,6 @@ public class SessionController {
 
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/tokenRequest")
     public ResponseEntity<String> tokenRequest(@RequestParam(value="uuid") String uuid, HttpServletRequest request) {
-        /*try {
-            Jwt jwt = Jwts.parser().setSigningKey(NectarServerApplication.getConfiguration().getClientPublicKey())
-                    .parse(info);
-        } catch(MalformedJwtException e) {
-            NectarServerApplication.getLogger().warn("Malformed JWT from client \"" + uuid
-                    + "\" while processing token request."
-            );
-            return ResponseEntity.badRequest().body("JWT \"clientInfo\" is malformed!");
-        } catch(SignatureException e) {
-            NectarServerApplication.getLogger().warn("Invalid JWT signature from client \"" + uuid
-                    + "\" while processing token request."
-            );
-            return ResponseEntity.badRequest().body("JWT \"clientInfo\" signature is invalid!");
-        } catch(Exception e) {
-            NectarServerApplication.getLogger().error(" Failed to verify JWT from client \"" + uuid
-                    + "\" while processing token request."
-            );
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to verify JWT.");
-        }*/
-
-        // Verify "uuid"
-        // TODO: Check MongoDB database for UUID
 
         MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
         Document doc = clients.find(Filters.eq("uuid", uuid)).first();
@@ -104,7 +85,7 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("UUID not found in database.");
         }
 
-        try {
+        try { // Verify "uuid"
             UUID.fromString(uuid);
         } catch(IllegalArgumentException e) {
             // UUID is invalid
@@ -112,13 +93,14 @@ public class SessionController {
         }
 
         // Check if we have issued a token already for this UUID
-        if(this.tokens.containsKey(uuid)) {
+        if(this.sessions.containsKey(uuid)) {
             // Token has been issued
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token already issued for this UUID!");
         }
 
         SessionToken token = new SessionToken(uuid, System.currentTimeMillis(), 500);
-        this.tokens.put(uuid, token); // Insert the token into the Map
+        ClientSession session = new ClientSession(token);
+        this.sessions.put(uuid, session);
 
         String jwt = Jwts.builder()
                 .setPayload(token.constructJSON().toJSONString())
@@ -128,5 +110,46 @@ public class SessionController {
         NectarServerApplication.getLogger().info("Issued token for new client " + request.getRemoteAddr() + " with UUID: " + uuid);
 
         return ResponseEntity.ok(jwt); // Return the token
+    }
+
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/updateState")
+    public ResponseEntity stateUpdate(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "state") int state, HttpServletRequest request) {
+
+        Jwt jwt;
+        try {
+            jwt = Jwts.parser().setSigningKey(NectarServerApplication.getConfiguration().getClientPublicKey())
+                    .parse(jwtRaw);
+        } catch(MalformedJwtException e) {
+            NectarServerApplication.getLogger().warn("Malformed JWT from client \"" + request.getRemoteAddr()
+                    + "\" while processing token request."
+            );
+            return ResponseEntity.badRequest().body("JWT \"clientInfo\" is malformed!");
+        } catch(SignatureException e) {
+            NectarServerApplication.getLogger().warn("Invalid JWT signature from client \"" + request.getRemoteAddr()
+                    + "\" while processing token request."
+            );
+            return ResponseEntity.badRequest().body("JWT \"clientInfo\" signature is invalid!");
+        } catch(Exception e) {
+            NectarServerApplication.getLogger().error(" Failed to verify JWT from client \"" + request.getRemoteAddr()
+                    + "\" while processing token request."
+            );
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to verify JWT.");
+        }
+
+        SessionToken token = SessionToken.fromJSON((String) jwt.getBody());
+
+        if(this.checkToken(token)) { // Check if the token has expired
+            try {
+                ClientState cstate = ClientState.fromInt(state);
+                this.sessions.get(token.getUuid()).updateState(cstate);
+            } catch(IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body("Invalid state.");
+            }
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
+
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }
 }
