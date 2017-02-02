@@ -28,8 +28,15 @@
  */
 package io.github.jython234.nectar.server;
 
+import com.mongodb.Mongo;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.ServerAddress;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Collation;
 import io.github.jython234.nectar.server.struct.PeerInformation;
 import lombok.Getter;
+import org.bson.Document;
 import org.ini4j.Ini;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +64,9 @@ public class NectarServerApplication {
 
     public static final PeerInformation SERVER_INFORMATION = generateServerInfo();
 
+    private static MongoClient mongoClient;
+    @Getter private static MongoDatabase db;
+
     @Getter private static Logger logger;
     @Getter private static String configDir;
     @Getter private static NectarServerConfiguration configuration;
@@ -80,6 +90,8 @@ public class NectarServerApplication {
             e.printStackTrace(System.err);
             System.exit(1);
         }
+
+        connectMongo();
 
         logger.info("Starting SpringApplication...");
 
@@ -106,6 +118,19 @@ public class NectarServerApplication {
             configDir = "/etc/nectar-server/"; // TODO: Windows Support
         } else {
             configDir = System.getProperty("user.dir");
+        }
+    }
+
+    private static void connectMongo() {
+        mongoClient = new MongoClient(configuration.getDbIP(), configuration.getDbPort());
+        db = mongoClient.getDatabase(configuration.getDbName());
+
+        try {
+            mongoClient.getAddress();
+        } catch(Exception e) {
+            e.printStackTrace();
+            logger.error("Failed to connect to MongoDB database!");
+            System.exit(1);
         }
     }
 
