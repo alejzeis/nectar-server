@@ -195,4 +195,23 @@ public class SessionController {
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }
+
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/queryState")
+    public ResponseEntity<Integer> queryState(@RequestParam(value = "uuid") String uuid) {
+        if(this.sessions.containsKey(uuid)) {
+            return ResponseEntity.ok(this.sessions.get(uuid).getState().toInt());
+        }
+
+        // The session requested is not connected. Check the database then.
+        MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+        Document doc = clients.find(Filters.eq("uuid", uuid)).first();
+        if(doc == null) {
+            // We couldn't find a client with the UUID, that means it's an invalid client UUID
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(-1);
+        } else {
+            // We found the client
+            // Default value is UNKNOWN, in case the state was never set in the database yet.
+            return ResponseEntity.ok(doc.getInteger("state", ClientState.UNKNOWN.toInt()));
+        }
+    }
 }
