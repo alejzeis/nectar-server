@@ -28,7 +28,7 @@ public class ClientSession {
         this.state = state;
 
         MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
-        Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
-        doc.put("state", state.toInt());
+        clients.updateOne(Filters.eq("uuid", token.getUuid()),
+                new Document("$set", new Document("state", state.toInt())));
     }
 }
