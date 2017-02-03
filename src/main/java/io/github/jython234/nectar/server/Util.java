@@ -3,6 +3,7 @@ package io.github.jython234.nectar.server;
 import org.apache.commons.io.FileUtils;
 
 import java.io.*;
+import java.util.Base64;
 
 /**
  * Misc. Utility methods class
@@ -42,5 +43,13 @@ public class Util {
         }
 
         return sb.toString();
+    }
+
+    public static String getJWTPayload(String jwtRaw) {
+        try {
+            return new String(Base64.getDecoder().decode(jwtRaw.split("\\.")[1]));
+        } catch(ArrayIndexOutOfBoundsException e) {
+            throw new IllegalArgumentException("JWT is invalid, missing payload!");
+        }
     }
 }

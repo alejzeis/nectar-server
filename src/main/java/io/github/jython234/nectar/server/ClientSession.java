@@ -2,6 +2,7 @@ package io.github.jython234.nectar.server;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import io.github.jython234.nectar.server.controller.SessionController;
 import io.github.jython234.nectar.server.struct.ClientState;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import lombok.Getter;
@@ -23,10 +24,11 @@ public class ClientSession {
     }
 
     public void updateState(ClientState state) {
-        NectarServerApplication.getLogger().info("Client " + token.getUuid() + " state updated to: " + state.toInt());
+        NectarServerApplication.getLogger().info("Client " + token.getUuid() + " state updated to: " + state.toString());
         this.state = state;
 
         MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
         Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
+        doc.put("state", state.toInt());
     }
 }

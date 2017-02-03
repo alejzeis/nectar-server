@@ -15,34 +15,36 @@ public enum ClientState {
      * Client is online and connected to
      * the server with an active session.
      */
-    ONLINE(0),
+    ONLINE(0, "ClientState.ONLINE(0)"),
     /**
      * Client is offline, has performed a
      * full OS shutdown.
      */
-    SHUTDOWN(1),
+    SHUTDOWN(1, "ClientState.SHUTDOWN(1)"),
     /**
      * Client has gone to sleep.
      */
-    SLEEP(2),
+    SLEEP(2, "ClientState.SLEEP(2)"),
     /**
      * Client is offline, the OS
      * is restarting. The Client will
      * reconnect once it goes online.
      */
-    RESTART(3),
+    RESTART(3, "ClientState.RESTART(3)"),
     /**
      * Client state is unknown. This is
      * set when a Client's token has been revoked
      * while online. Once the token is renewed, the
      * state will be updated.
      */
-    UNKNOWN(4);
+    UNKNOWN(4, "ClientState.UNKNOWN(4)");
 
     private int state;
+    private String string;
 
-    ClientState(int state) {
+    ClientState(int state, String string) {
         this.state = state;
+        this.string = string;
     }
 
     public static ClientState fromInt(int state) {
@@ -62,5 +64,9 @@ public enum ClientState {
 
     public int toInt() {
         return state;
+    }
+
+    public String toString() {
+        return string;
     }
 }

@@ -4,9 +4,11 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import io.github.jython234.nectar.server.ClientSession;
 import io.github.jython234.nectar.server.NectarServerApplication;
+import io.github.jython234.nectar.server.Util;
 import io.github.jython234.nectar.server.struct.ClientState;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.impl.DefaultClaims;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.bson.Document;
@@ -31,7 +33,9 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @RestController
 public class SessionController {
-    @Getter(AccessLevel.PROTECTED) private static SessionController instance;
+    public static final int TOKEN_EXPIRE_TIME = 1800000; // Token expire time is 30 minutes
+
+    @Getter private static SessionController instance;
 
     private Map<String, ClientSession> sessions;
 
@@ -48,6 +52,8 @@ public class SessionController {
             if((System.currentTimeMillis() - token.getTimestamp()) >= token.getExpires()) { // Check if the token has expired
                 // Session Token has expired, revoke it
                 NectarServerApplication.getLogger().info("Token for " + token.getUuid() + " has expired, session removed.");
+
+                session.updateState(ClientState.UNKNOWN); // Switch to unknown state until it renews it's token
                 sessions.remove(token.getUuid());
             }
         });
@@ -69,6 +75,33 @@ public class SessionController {
         }
 
         return false;
+    }
+
+    /**
+     * Get the current ClientState of a client,
+     * connected or not.
+     * @param uuid The UUID of the client. This must be a valid
+     *             UUID which belongs to a client. If the UUID is
+     *             not found in the database or connected clients,
+     *             then a RuntimeException is thrown.
+     * @return The ClientState of the specified client with the UUID.
+     */
+    public ClientState queryClientState(String uuid) {
+        for(ClientSession session : this.sessions.values()) {
+            if(session.getToken().getUuid().equals(uuid)) {
+                return session.getState();
+            }
+        }
+
+        // The session is not currently connected, so we need to check the database
+        MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+        Document doc = clients.find(Filters.eq("uuid", uuid)).first();
+        if(doc != null) {
+            return ClientState.fromInt(doc.getInteger("state", ClientState.UNKNOWN.toInt()));
+        }
+
+        // We couldn't find the client in the database, so throw an exception
+        throw new RuntimeException("Failed to find UUID " + uuid + "in connected sessions or in database. Is it invalid?");
     }
 
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/tokenRequest")
@@ -98,8 +131,9 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token already issued for this UUID!");
         }
 
-        SessionToken token = new SessionToken(uuid, System.currentTimeMillis(), 500);
+        SessionToken token = new SessionToken(uuid, System.currentTimeMillis(), TOKEN_EXPIRE_TIME);
         ClientSession session = new ClientSession(token);
+        session.updateState(ClientState.ONLINE); // Client is now online
         this.sessions.put(uuid, session);
 
         String jwt = Jwts.builder()
@@ -115,10 +149,9 @@ public class SessionController {
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/updateState")
     public ResponseEntity stateUpdate(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "state") int state, HttpServletRequest request) {
 
-        Jwt jwt;
         try {
-            jwt = Jwts.parser().setSigningKey(NectarServerApplication.getConfiguration().getClientPublicKey())
-                    .parse(jwtRaw);
+            Jwts.parser().setSigningKey(NectarServerApplication.getConfiguration().getServerPublicKey())
+                .parse(jwtRaw); // Verify signature
         } catch(MalformedJwtException e) {
             NectarServerApplication.getLogger().warn("Malformed JWT from client \"" + request.getRemoteAddr()
                     + "\" while processing token request."
@@ -137,12 +170,22 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to verify JWT.");
         }
 
-        SessionToken token = SessionToken.fromJSON((String) jwt.getBody());
+        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
 
         if(this.checkToken(token)) { // Check if the token has expired
             try {
                 ClientState cstate = ClientState.fromInt(state);
                 this.sessions.get(token.getUuid()).updateState(cstate);
+
+                switch (cstate) {
+                    case SHUTDOWN:
+                    case SLEEP:
+                        // If we are shutting down or sleeping we need to remove the session.
+                        this.sessions.remove(token.getUuid());
+                        NectarServerApplication.getLogger().info("Revoked token for " + token.getUuid() + ": state changed.");
+                        break;
+                }
+
             } catch(IllegalArgumentException e) {
                 return ResponseEntity.badRequest().body("Invalid state.");
             }
