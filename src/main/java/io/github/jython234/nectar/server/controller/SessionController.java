@@ -149,26 +149,9 @@ public class SessionController {
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/updateState")
     public ResponseEntity stateUpdate(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "state") int state, HttpServletRequest request) {
 
-        try {
-            Jwts.parser().setSigningKey(NectarServerApplication.getConfiguration().getServerPublicKey())
-                .parse(jwtRaw); // Verify signature
-        } catch(MalformedJwtException e) {
-            NectarServerApplication.getLogger().warn("Malformed JWT from client \"" + request.getRemoteAddr()
-                    + "\" while processing token request."
-            );
-            return ResponseEntity.badRequest().body("JWT \"clientInfo\" is malformed!");
-        } catch(SignatureException e) {
-            NectarServerApplication.getLogger().warn("Invalid JWT signature from client \"" + request.getRemoteAddr()
-                    + "\" while processing token request."
-            );
-            return ResponseEntity.badRequest().body("JWT \"clientInfo\" signature is invalid!");
-        } catch(Exception e) {
-            NectarServerApplication.getLogger().error(" Failed to verify JWT from client \"" + request.getRemoteAddr()
-                    + "\" while processing token request."
-            );
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to verify JWT.");
-        }
+        ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+        if(r != null)
+            return r;
 
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
 
