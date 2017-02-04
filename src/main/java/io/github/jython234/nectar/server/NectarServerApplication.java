@@ -28,15 +28,10 @@
  */
 package io.github.jython234.nectar.server;
 
-import com.mongodb.Mongo;
 import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
-import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.Collation;
 import io.github.jython234.nectar.server.struct.PeerInformation;
 import lombok.Getter;
-import org.bson.Document;
 import org.ini4j.Ini;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

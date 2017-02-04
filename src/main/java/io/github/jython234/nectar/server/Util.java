@@ -39,9 +39,11 @@ import org.springframework.http.ResponseEntity;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.*;
+import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
@@ -50,6 +52,16 @@ import java.util.Base64;
  * @author jython234
  */
 public class Util {
+
+    private static SecureRandom random = new SecureRandom();
+
+    /**
+     * Utility method used to generate Client auth strings.
+     * @return A new client auth string.
+     */
+    public static String generateNextRandomString() {
+        return new BigInteger(130, random).toString(32);
+    }
 
     /**
      * Copies a "resource" file from the JAR or resource folder to

@@ -52,6 +52,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.security.MessageDigest;
+import java.util.UUID;
 
 /**
  * Controller that handles user
@@ -113,8 +114,7 @@ public class AuthController {
                     );
                     NectarServerApplication.getLogger().info("User \"" + username + "\" logged in from " + token.getUuid());
                 } else {
-                    System.out.println(userDoc.getString("password"));
-                    System.out.println(Util.computeSHA256(password));
+                    NectarServerApplication.getLogger().warn("ATTEMPTED LOGIN TO USER \"" + username + "\": incorrect password from " + token.getUuid());
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Password not correct!");
                 }
             }
@@ -166,11 +166,51 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }
 
-    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerClient", method = RequestMethod.POST)
-    public ResponseEntity<String> registerClient(@RequestParam(value = "user") String user, @RequestParam(value = "password") String password,
-                                                 @RequestParam(value = "clientInfo") String clientInfo, HttpServletRequest request) {
+    @SuppressWarnings("unchecked")
+    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerClient"/*, method = RequestMethod.POST*/)
+    public ResponseEntity<String> registerClient(@RequestParam(value = "token") String jwtRaw,
+                                                 @RequestParam(value = "clientInfo") String clientInfo,
+                                                 HttpServletRequest request) {
 
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body("Not implemented.");
+        ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+        if(r != null)
+            return r;
+
+        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+
+        if(SessionController.getInstance().checkToken(token)) {
+            MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+            MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
+            Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
+
+            if(doc == null)
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find entry in database for client.");
+
+            try {
+                ResponseEntity re = checkUserAdmin(token, users, doc);
+                if(re != null)
+                    return re;
+            } catch(Exception e) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
+            }
+
+            String uuid = UUID.randomUUID().toString();
+            String authString = Util.generateNextRandomString();
+
+            Document clientDoc = new Document()
+                    .append("uuid", uuid)
+                    .append("auth", Util.computeSHA256(authString));
+            clients.insertOne(clientDoc);
+
+            NectarServerApplication.getLogger().info("Registered new client \"" + uuid + "\"");
+
+            JSONObject root = new JSONObject();
+            root.put("uuid", uuid);
+            root.put("auth", authString);
+            return ResponseEntity.ok(root.toJSONString());
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/invalid.");
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -193,31 +233,11 @@ public class AuthController {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find entry in database for client.");
 
             try {
-                // getString will throw an exception if the key is not present in the document
-                String loggedInUser = doc.getString("loggedInUser");
-                if(loggedInUser.equals("none")) {
-                    // No user is logged in
-                    throw new RuntimeException(); // Move to catch block
-                }
-
-                Document userDoc = users.find(Filters.eq("username", loggedInUser)).first();
-
-                if(userDoc == null) { // We can't find the logged in user in the users database, strange
-                    NectarServerApplication.getLogger().warn("Failed to find logged in user \"" + loggedInUser + "\" for session "
-                            + token.getUuid() + " while processing user registration"
-                    );
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find current logged in user in DB.");
-                } else { // User found, check admin now
-                    if(!userDoc.getBoolean("admin", false)) {
-                        NectarServerApplication.getLogger().warn("ATTEMPTED USER REGISTRATION BY NON_ADMIN USER \"" + loggedInUser + "\""
-                                + " from session " + token.getUuid()
-                        );
-                        throw new RuntimeException(); // Move to catch block
-                    }
-                    // User is confirmed logged in and admin, all checks passed.
-                }
+                ResponseEntity re = checkUserAdmin(token, users, doc);
+                if(re != null)
+                    return re;
             } catch(Exception e) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privlidge must be logged in on this client.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
             }
 
             if(users.find(Filters.eq("username", username)).first() != null)
@@ -234,5 +254,32 @@ public class AuthController {
         }
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
+    }
+
+    private ResponseEntity checkUserAdmin(SessionToken token, MongoCollection<Document> users, Document doc) {
+        // getString will throw an exception if the key is not present in the document
+        String loggedInUser = doc.getString("loggedInUser");
+        if(loggedInUser.equals("none")) {
+            // No user is logged in
+            throw new RuntimeException(); // Move to catch block
+        }
+
+        Document userDoc = users.find(Filters.eq("username", loggedInUser)).first();
+
+        if(userDoc == null) { // We can't find the logged in user in the users database, strange
+            NectarServerApplication.getLogger().warn("Failed to find logged in user \"" + loggedInUser + "\" for session "
+                    + token.getUuid() + " while processing user registration"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find current logged in user in DB.");
+        } else { // User found, check admin now
+            if(!userDoc.getBoolean("admin", false)) {
+                NectarServerApplication.getLogger().warn("ATTEMPTED CLIENT REGISTRATION BY NON_ADMIN USER \"" + loggedInUser + "\""
+                        + " from session " + token.getUuid()
+                );
+                throw new RuntimeException(); // Move to catch block
+            }
+            // User is confirmed logged in and admin, all checks passed.
+        }
+        return null;
     }
 }
