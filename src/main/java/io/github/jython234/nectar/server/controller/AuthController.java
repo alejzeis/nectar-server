@@ -125,6 +125,7 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }
 
+    @SuppressWarnings("unchecked")
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/auth/logout")
     public ResponseEntity<String> logout(@RequestParam(value = "token") String jwtRaw, HttpServletRequest request) {
         ResponseEntity r = Util.verifyJWT(jwtRaw, request);
@@ -196,6 +197,18 @@ public class AuthController {
 
             String uuid = UUID.randomUUID().toString();
             String authString = Util.generateNextRandomString();
+
+            while(true) {
+                if(clients.find(Filters.eq("uuid", uuid)).first() != null
+                        || clients.find(Filters.eq("auth", Util.computeSHA256(authString))).first() != null) {
+                    // We have a collision of UUID or auth string, although it should be VERY VERY rare
+                    uuid = UUID.randomUUID().toString();
+                    authString = Util.generateNextRandomString();
+                } else {
+                    // UUID and Auth string are unique, break out
+                    break;
+                }
+            }
 
             Document clientDoc = new Document()
                     .append("uuid", uuid)
