@@ -34,8 +34,12 @@ import io.jsonwebtoken.SignatureException;
 import org.apache.catalina.realm.MessageDigestCredentialHandler;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.*;
@@ -52,6 +56,8 @@ import java.util.Base64;
  * @author jython234
  */
 public class Util {
+
+    static ResourceLoader resourceLoader = new DefaultResourceLoader();
 
     private static SecureRandom random = new SecureRandom();
 
@@ -73,7 +79,7 @@ public class Util {
      *                     copy the file.
      */
     public static void copyResourceTo(String resource, File copyLocation) throws IOException {
-        InputStream in = ClassLoader.getSystemResourceAsStream("default.ini");
+        InputStream in = resourceLoader.getResource(resource).getInputStream();
         FileUtils.copyInputStreamToFile(in, copyLocation);
     }
 
@@ -84,7 +90,7 @@ public class Util {
      * @return The full contents of the resource file as a String.
      */
     public static String getResourceContents(String resource) throws IOException {
-        InputStream in = ClassLoader.getSystemResourceAsStream(resource);
+        InputStream in = resourceLoader.getResource(resource).getInputStream();
         BufferedReader reader = new BufferedReader(new InputStreamReader(in));
 
         String line;
