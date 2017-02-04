@@ -3,12 +3,17 @@ package io.github.jython234.nectar.server;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureException;
+import org.apache.catalina.realm.MessageDigestCredentialHandler;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.*;
+import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
 /**
@@ -92,5 +97,14 @@ public class Util {
         }
 
         return null;
+    }
+
+    /**
+     * Compute the SHA-256 Hash of a String.
+     * @param plaintext The raw text to be hashed.
+     * @return The hash of the provided text.
+     */
+    public static String computeSHA256(String plaintext) {
+        return DigestUtils.sha256Hex(plaintext);
     }
 }
