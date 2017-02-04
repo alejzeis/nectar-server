@@ -133,7 +133,8 @@ public class SessionController {
     }
 
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/tokenRequest")
-    public ResponseEntity<String> tokenRequest(@RequestParam(value="uuid") String uuid, HttpServletRequest request) {
+    public ResponseEntity<String> tokenRequest(@RequestParam(value = "uuid") String uuid, @RequestParam(value = "auth") String authString,
+                                               HttpServletRequest request) {
 
         MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
         Document doc = clients.find(Filters.eq("uuid", uuid)).first();
@@ -144,6 +145,20 @@ public class SessionController {
                     + request.getRemoteAddr() + " with UUID: " + uuid
             );
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("UUID not found in database.");
+        } else {
+            try {
+                String auth = doc.getString("auth");
+                if(!auth.equals(Util.computeSHA256(authString))) {
+                    // Auth string does not match, unauthenticated
+                    NectarServerApplication.getLogger().warn("Attempted token request for" + uuid + " from: "
+                            + request.getRemoteAddr() + ", authentication string check failed."
+                    );
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Authentication Strings do not match!");
+                }
+            } catch(Exception e) {
+                NectarServerApplication.getLogger().warn("Failed to find auth string for \"" + uuid + "\" in database.");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find auth string in database.");
+            }
         }
 
         try { // Verify "uuid"

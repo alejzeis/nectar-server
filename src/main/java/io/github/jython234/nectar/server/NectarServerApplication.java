@@ -53,8 +53,8 @@ public class NectarServerApplication {
     public static final String SOFTWARE = "Nectar-Server";
     public static final String SOFTWARE_VERSION = "0.1.0-SNAPSHOT";
 
-    public static final int API_VERSION_MAJOR = 1;
-    public static final int API_VERSION_MINOR = 3;
+    public static final int API_VERSION_MAJOR = 2;
+    public static final int API_VERSION_MINOR = 1;
     public static final String ROOT_PATH = "/nectar/api/" + API_VERSION_MAJOR + "/" + API_VERSION_MINOR;
 
     public static final PeerInformation SERVER_INFORMATION = generateServerInfo();
