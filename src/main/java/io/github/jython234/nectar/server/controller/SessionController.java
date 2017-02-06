@@ -95,7 +95,8 @@ public class SessionController {
      */
     public boolean checkToken(SessionToken token) {
         for(ClientSession session : sessions.values()) {
-            if(session.getToken().getUuid().equals(token.getUuid())
+            if(session.getToken().getServerID().equals(NectarServerApplication.serverID)
+                    && session.getToken().getUuid().equals(token.getUuid())
                     && session.getToken().getTimestamp() == token.getTimestamp()
                     && session.getToken().getExpires() == token.getExpires()) {
                 return true;
@@ -174,7 +175,7 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token already issued for this UUID!");
         }
 
-        SessionToken token = new SessionToken(uuid, System.currentTimeMillis(), TOKEN_EXPIRE_TIME);
+        SessionToken token = new SessionToken(NectarServerApplication.serverID, uuid, System.currentTimeMillis(), TOKEN_EXPIRE_TIME);
         ClientSession session = new ClientSession(token);
         session.updateState(ClientState.ONLINE); // Client is now online
         this.sessions.put(uuid, session);
@@ -215,6 +216,25 @@ public class SessionController {
             } catch(IllegalArgumentException e) {
                 return ResponseEntity.badRequest().body("Invalid state.");
             }
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
+
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
+    }
+
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/clientPing")
+    public ResponseEntity clientPing(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "data") String dataRaw,
+                                     HttpServletRequest request) {
+
+        ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+        if(r != null)
+            return r;
+
+        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+
+        if(this.checkToken(token)) {
+            // TODO
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }

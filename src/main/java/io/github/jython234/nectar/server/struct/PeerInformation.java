@@ -42,6 +42,7 @@ public class PeerInformation {
     @Getter private final String softwareVersion;
     @Getter private final int apiVersionMajor;
     @Getter private final int apiVersionMinor;
+    @Getter private final String serverID;
     @Getter private final SystemInfo systemInfo;
 
     @RequiredArgsConstructor

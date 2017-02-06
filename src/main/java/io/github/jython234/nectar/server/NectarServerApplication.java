@@ -41,6 +41,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.UUID;
 
 /**
  * Main Application class.
@@ -54,9 +55,11 @@ public class NectarServerApplication {
     public static final String SOFTWARE_VERSION = "0.1.0-SNAPSHOT";
 
     public static final int API_VERSION_MAJOR = 2;
-    public static final int API_VERSION_MINOR = 1;
-    public static final String ROOT_PATH = "/nectar/api/" + API_VERSION_MAJOR + "/" + API_VERSION_MINOR;
+    public static final int API_VERSION_MINOR = 2;
+    public static final String ROOT_PATH_REAL = "/nectar/api/";
+    public static final String ROOT_PATH = ROOT_PATH_REAL + "v/" + API_VERSION_MAJOR + "/" + API_VERSION_MINOR;
 
+    public static final String serverID = UUID.randomUUID().toString();
     public static final PeerInformation SERVER_INFORMATION = generateServerInfo();
 
     private static MongoClient mongoClient;
@@ -77,6 +80,8 @@ public class NectarServerApplication {
 
         logger.info("Starting " + SOFTWARE + " version " + SOFTWARE_VERSION +" implementing API "
                 + API_VERSION_MAJOR + "-" + API_VERSION_MINOR);
+
+        logger.info("Server ID is " + serverID);
 
         try {
             loadConfig();
@@ -135,6 +140,7 @@ public class NectarServerApplication {
                 SOFTWARE_VERSION,
                 API_VERSION_MAJOR,
                 API_VERSION_MINOR,
+                serverID,
                 new PeerInformation.SystemInfo(
                         System.getProperty("java.version"),
                         System.getenv("os.arch"),

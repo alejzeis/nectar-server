@@ -43,7 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class RootController {
 
-    @RequestMapping(NectarServerApplication.ROOT_PATH + "/infoRequest")
+    @RequestMapping(NectarServerApplication.ROOT_PATH_REAL + "infoRequest")
     public ResponseEntity<PeerInformation> infoRequest() {
         return new ResponseEntity<>(NectarServerApplication.SERVER_INFORMATION, HttpStatus.OK);
     }
