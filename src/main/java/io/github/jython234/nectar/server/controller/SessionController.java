@@ -83,6 +83,15 @@ public class SessionController {
 
                 session.updateState(ClientState.UNKNOWN); // Switch to unknown state until it renews it's token
                 sessions.remove(token.getUuid());
+            } else {
+                // Session Token has not expired, check when the last ping was
+                if((System.currentTimeMillis() - session.getLastPing()) >= 30000) {
+                    // Check if last ping was greater than 30 seconds ago. Ideally the client should ping ever 15 seconds
+                    NectarServerApplication.getLogger().info("Last ping for " + token.getUuid() + " was greater than 30 seconds ago, revoking token.");
+
+                    session.updateState(ClientState.UNKNOWN); // They timed out
+                    sessions.remove(token.getUuid());
+                }
             }
         });
     }

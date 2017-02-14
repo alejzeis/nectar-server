@@ -45,10 +45,12 @@ import org.bson.Document;
 public class ClientSession {
     @Getter private SessionToken token;
     @Getter private ClientState state;
+    @Getter private long lastPing;
 
     public ClientSession(SessionToken token) {
         this.token = token;
         this.state = ClientState.UNKNOWN;
+        this.lastPing = System.currentTimeMillis();
     }
 
     public void updateState(ClientState state) {
