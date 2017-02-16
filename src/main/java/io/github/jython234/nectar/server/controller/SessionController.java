@@ -271,6 +271,8 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }
 
+        NectarServerApplication.getLogger().info("MANAGEMENT session logged out from " + request.getRemoteAddr());
+
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }
 

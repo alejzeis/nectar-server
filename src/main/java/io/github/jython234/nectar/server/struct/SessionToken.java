@@ -66,6 +66,7 @@ public class SessionToken {
     @SuppressWarnings("unchecked")
     public JSONObject constructJSON() {
         JSONObject root = new JSONObject();
+        root.put("full", full);
         root.put("uuid", uuid);
         root.put("timestamp", timestamp);
         root.put("expires", expires);
