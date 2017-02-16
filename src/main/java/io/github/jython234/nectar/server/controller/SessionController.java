@@ -252,6 +252,28 @@ public class SessionController {
         return ResponseEntity.ok(jwt); // Return the token
     }
 
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/mgmtLogout")
+    public ResponseEntity managementLogout(@RequestParam(value = "token") String jwtRaw, HttpServletRequest request) {
+        ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+        if(r != null)
+            return r;
+
+        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+
+        if(this.checkToken(token)) {
+            if(token.isFull()) {
+                return ResponseEntity.badRequest().body("This token is not from a management session!");
+            }
+
+            this.sessions.get(token.getUuid()).updateState(ClientState.UNKNOWN);
+            this.sessions.remove(token.getUuid()); // Remove
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
+
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
+    }
+
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/updateState")
     public ResponseEntity stateUpdate(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "state") int state, HttpServletRequest request) {
 
