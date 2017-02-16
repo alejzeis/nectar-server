@@ -42,6 +42,7 @@ import org.json.simple.parser.ParseException;
  */
 @RequiredArgsConstructor
 public class SessionToken {
+    @Getter private final boolean full;
     @Getter private final String serverID;
     @Getter private final String uuid;
     @Getter private final long timestamp;
@@ -56,7 +57,7 @@ public class SessionToken {
             if(!obj.containsKey("uuid") || !obj.containsKey("timestamp") || !obj.containsKey("expires"))
                 throw new IllegalArgumentException("JSON is invalid: missing keys!");
 
-            return new SessionToken((String) obj.get("serverID"), (String) obj.get("uuid"), (long) obj.get("timestamp"), (long) obj.get("expires"));
+            return new SessionToken((boolean) obj.get("full"), (String) obj.get("serverID"), (String) obj.get("uuid"), (long) obj.get("timestamp"), (long) obj.get("expires"));
         } catch (ParseException e) {
             throw new IllegalArgumentException(e);
         }

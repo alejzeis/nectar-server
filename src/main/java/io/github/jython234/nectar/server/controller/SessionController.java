@@ -50,6 +50,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -167,6 +168,7 @@ public class SessionController {
                 }
             } catch(Exception e) {
                 NectarServerApplication.getLogger().warn("Failed to find auth string for \"" + uuid + "\" in database.");
+                NectarServerApplication.getLogger().warn("Is the database corrupted?");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find auth string in database.");
             }
         }
@@ -184,7 +186,7 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token already issued for this UUID!");
         }
 
-        SessionToken token = new SessionToken(NectarServerApplication.serverID, uuid, System.currentTimeMillis(), TOKEN_EXPIRE_TIME);
+        SessionToken token = new SessionToken(true, NectarServerApplication.serverID, uuid, System.currentTimeMillis(), TOKEN_EXPIRE_TIME);
         ClientSession session = new ClientSession(token);
         session.updateState(ClientState.ONLINE); // Client is now online
         this.sessions.put(uuid, session);
@@ -199,6 +201,57 @@ public class SessionController {
         return ResponseEntity.ok(jwt); // Return the token
     }
 
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/mgmtTokenRequest")
+    public ResponseEntity<String> managementTokenRequest(@RequestParam(value = "username") String username, @RequestParam(value = "password") String password
+                                                         , HttpServletRequest request) {
+
+        MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
+        Document doc = users.find(Filters.eq("username", username)).first();
+        if(doc == null) {
+            // We can't find this user in the database
+            // This means that the client is unregistered, so we drop the request
+            NectarServerApplication.getLogger().warn("Received MANAGEMENT REQUEST from unknown user \""
+                    + username + "\" (" + request.getRemoteAddr() + ")"
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
+        } else {
+            try {
+                String pw = doc.getString("password");
+                if(!pw.equals(Util.computeSHA256(password))) {
+                    // Passwords do not match.
+                    NectarServerApplication.getLogger().warn("Attempted MANAGEMENT REQUEST from user \""
+                            + username + "\": password check failed! (" + request.getRemoteAddr() + ")"
+                    );
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Password Incorrect!");
+                }
+            } catch(Exception e) {
+                NectarServerApplication.getLogger().warn("Failed to find password string for \"" + username + "\" in database.");
+                NectarServerApplication.getLogger().warn("Is the database corrupted?");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find auth string in database.");
+            }
+        }
+
+        // Check if we have issued a token already for the client.
+        if(this.sessions.containsKey(NectarServerApplication.serverID)) {
+            // Token has been issued
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Another management session is currently logged in!");
+        }
+
+        SessionToken token = new SessionToken(false, NectarServerApplication.serverID, NectarServerApplication.serverID, System.currentTimeMillis(), TOKEN_EXPIRE_TIME);
+        ClientSession session = new ClientSession(token);
+        session.updateState(ClientState.ONLINE);
+        this.sessions.put(NectarServerApplication.serverID, session);
+
+        String jwt = Jwts.builder()
+                .setPayload(token.constructJSON().toJSONString())
+                .signWith(SignatureAlgorithm.ES384, NectarServerApplication.getConfiguration().getServerPrivateKey())
+                .compact(); // Sign and build the JWT
+
+        NectarServerApplication.getLogger().info("Issued token for new MANAGEMENT client " + request.getRemoteAddr());
+
+        return ResponseEntity.ok(jwt); // Return the token
+    }
+
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/updateState")
     public ResponseEntity stateUpdate(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "state") int state, HttpServletRequest request) {
 
@@ -209,6 +262,10 @@ public class SessionController {
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
 
         if(this.checkToken(token)) { // Check if the token has expired
+            if(!token.isFull()) {
+                return ResponseEntity.badRequest().body("Management sessions can not update state.");
+            }
+
             try {
                 ClientState cstate = ClientState.fromInt(state);
                 this.sessions.get(token.getUuid()).updateState(cstate);
@@ -255,6 +312,12 @@ public class SessionController {
     public ResponseEntity<Integer> queryState(@RequestParam(value = "uuid") String uuid) {
         if(this.sessions.containsKey(uuid)) {
             return ResponseEntity.ok(this.sessions.get(uuid).getState().toInt());
+        }
+
+        if(uuid.equals(NectarServerApplication.serverID)) {
+            // Since the above check failed (no token for management session found)
+            // That means that there is no management session logged in, so return offline
+            return ResponseEntity.ok(ClientState.SHUTDOWN.toInt());
         }
 
         // The session requested is not connected. Check the database then.

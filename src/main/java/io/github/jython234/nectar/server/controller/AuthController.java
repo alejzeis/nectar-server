@@ -115,7 +115,7 @@ public class AuthController {
                     NectarServerApplication.getLogger().info("User \"" + username + "\" logged in from " + token.getUuid());
                 } else {
                     NectarServerApplication.getLogger().warn("ATTEMPTED LOGIN TO USER \"" + username + "\": incorrect password from " + token.getUuid());
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Password not correct!");
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Password Incorrect!");
                 }
             }
         } else {
