@@ -71,6 +71,7 @@ public class NectarServerConfiguration {
 
     // FTS Section ---------------------------------------------
     @Getter private final String ftsDirectory;
+    @Getter private final long spaceThreshold;
 
     NectarServerConfiguration(Ini config) {
         this.bindPort = Integer.parseInt(config.get("network").get("bindPort"));
@@ -89,6 +90,8 @@ public class NectarServerConfiguration {
             // Check if the FTS directory is relative to the config directory
             this.ftsDirectory = System.getProperty("user.dir") + "/" + ftsDirectory;
         } else this.ftsDirectory = ftsDirectory;
+
+        this.spaceThreshold = Long.parseLong(config.get("fts").get("spaceThreshold"));
 
         loadKeys();
 
