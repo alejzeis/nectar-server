@@ -168,7 +168,7 @@ public class AuthController {
     }
 
     @SuppressWarnings("unchecked")
-    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerClient"/*, method = RequestMethod.POST*/)
+    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerClient")
     public ResponseEntity<String> registerClient(@RequestParam(value = "token") String jwtRaw,
                                                  @RequestParam(value = "clientInfo") String clientInfo,
                                                  HttpServletRequest request) {
@@ -182,17 +182,21 @@ public class AuthController {
         if(SessionController.getInstance().checkToken(token)) {
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
             MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
-            Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
 
-            if(doc == null)
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find entry in database for client.");
+            if(token.isFull()) {
+                // Is not a management session
+                Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
 
-            try {
-                ResponseEntity re = checkUserAdmin(token, users, doc);
-                if(re != null)
-                    return re;
-            } catch(Exception e) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
+                if(doc == null)
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find entry in database for client.");
+
+                try {
+                    ResponseEntity re = checkUserAdmin(token, users, doc);
+                    if(re != null)
+                        return re;
+                } catch(Exception e) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
+                }
             }
 
             String uuid = UUID.randomUUID().toString();
@@ -227,7 +231,7 @@ public class AuthController {
     }
 
     @SuppressWarnings("unchecked")
-    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerUser", method = RequestMethod.POST)
+    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerUser")
     public ResponseEntity<String> registerUser(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "user") String username,
                                                @RequestParam(value = "password") String password, @RequestParam(value = "admin") boolean admin,
                                                HttpServletRequest request) {
@@ -240,17 +244,20 @@ public class AuthController {
         if(SessionController.getInstance().checkToken(token)) {
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
             MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
-            Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
+            if(token.isFull()) {
+                // Is not a management session
+                Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
 
-            if(doc == null)
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find entry in database for client.");
+                if(doc == null)
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find entry in database for client.");
 
-            try {
-                ResponseEntity re = checkUserAdmin(token, users, doc);
-                if(re != null)
-                    return re;
-            } catch(Exception e) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
+                try {
+                    ResponseEntity re = checkUserAdmin(token, users, doc);
+                    if(re != null)
+                        return re;
+                } catch(Exception e) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
+                }
             }
 
             if(users.find(Filters.eq("username", username)).first() != null)
