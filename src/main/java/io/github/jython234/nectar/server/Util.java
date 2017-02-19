@@ -153,4 +153,36 @@ public class Util {
     public static String computeSHA256(String plaintext) {
         return DigestUtils.sha256Hex(plaintext);
     }
+
+    public static String computeFileSHA256Checksum(File file) throws IOException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+
+        FileInputStream in = new FileInputStream(file);
+
+        byte[] bytes = new byte[1024];
+        int bytesCount = 0;
+
+        while((bytesCount = in.read(bytes)) != -1) {
+            digest.update(bytes, 0, bytesCount);
+        }
+
+        in.close();
+
+        byte[] checksumBytes = digest.digest();
+
+        // Convert bytes to hex string
+
+        StringBuilder sb = new StringBuilder();
+        for(byte b : checksumBytes) {
+            //sb.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
+            sb.append(String.format("%02X", b));
+        }
+
+        return sb.toString().toLowerCase();
+    }
 }

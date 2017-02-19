@@ -5,7 +5,6 @@ import com.mongodb.client.model.Filters;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
 import io.github.jython234.nectar.server.struct.SessionToken;
-import org.apache.commons.io.FileSystemUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.bson.Document;
@@ -17,12 +16,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.print.Doc;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.FileSystems;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * Controller to handle FTS methods.
@@ -31,6 +34,65 @@ import java.nio.file.FileSystems;
  */
 @RestController
 public class FTSController {
+
+    public static void buildChecksumIndex() {
+        File publicDir = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + "publicStore");
+        File usrDir = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + "usrStore");
+
+        MongoCollection<Document> index = NectarServerApplication.getDb().getCollection("ftsIndex");
+
+        try {
+            buildChecksumDir(publicDir, index);
+            buildChecksumDir(usrDir, index);
+        } catch (IOException e) {
+            e.printStackTrace();
+            NectarServerApplication.getLogger().error("FAILED TO COMPUTE FTS CHECKSUMS!");
+            System.exit(1);
+        }
+    }
+
+    // TODO: Clean database of entries of deleted files (only because they could be deleted while the server is offline)
+    private static void buildChecksumDir(File dir, MongoCollection<Document> index) throws IOException {
+        File[] contents = dir.listFiles();
+        if(contents == null) return;
+
+        List<Document> toInsert = new ArrayList<>();
+
+        for(File file : contents) {
+            if(file.isDirectory()) {
+                // Recursion: build for all in that directory
+                buildChecksumDir(file, index);
+            } else {
+                // Is a file, build the checksum then
+                String checksum = Util.computeFileSHA256Checksum(file);
+                Document fileDoc = index.find(Filters.eq("path", file.getAbsolutePath())).first();
+                if(fileDoc == null) {
+                    toInsert.add(new Document()
+                            .append("path", file.getAbsolutePath())
+                            .append("checksum", checksum)
+                            .append("lastUpdatedBy", "server"));
+                } else {
+                    String dbChecksum = fileDoc.getString("checksum");
+                    if(!checksum.equals(dbChecksum)) {
+                        // Checksum has changed, we assume the file has been changed by the server
+                        // This is because if a client changes it, the database will be updated
+                        index.updateOne(Filters.eq("path", file.getAbsolutePath()),
+                                new Document("$set", new Document("checksum", checksum))
+                                ); // Update the checksum into the database
+
+                        index.updateOne(Filters.eq("path", file.getAbsolutePath()),
+                                new Document("$set", new Document("lastUpdatedBy", "server"))
+                                ); // Change lastUpdatedBy to "server"
+                    }
+                    // else: Checksum has not changed, all is well
+                }
+            }
+        }
+
+        if(!toInsert.isEmpty()) {
+            index.insertMany(toInsert);
+        }
+    }
 
     @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/fts/upload", method = RequestMethod.POST)
     public ResponseEntity upload(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "path") String path
@@ -191,6 +253,7 @@ public class FTSController {
 
     private ResponseEntity doUpload(String ftsPath, String loggedInUser, String name, String path, MultipartFile file) {
         File uploadPath = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + ftsPath);
+        MongoCollection<Document> index = NectarServerApplication.getDb().getCollection("ftsIndex");
 
         if (!uploadPath.exists()) {
             if (!uploadPath.mkdirs()) {
@@ -201,14 +264,46 @@ public class FTSController {
             }
         }
 
+        File physicalFile = new File(uploadPath + File.separator + name);
         try {
-            FileUtils.copyInputStreamToFile(file.getInputStream(), new File(uploadPath + File.separator + name));
+            FileUtils.copyInputStreamToFile(file.getInputStream(), physicalFile);
         } catch (IOException e) {
             e.printStackTrace();
             NectarServerApplication.getLogger().error("IOException while processing FTS upload \"" + path + "\""
-                    + " from user\"" + loggedInUser + "\""
+                    + " from user \"" + loggedInUser + "\""
             );
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("IOException while storing file.");
+        }
+
+        // Update index with new checksum -----------------------------------------------------------------------------------------------
+        String checksum;
+        try {
+            checksum = Util.computeFileSHA256Checksum(physicalFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+            NectarServerApplication.getLogger().error("IOException while calculating FTS checksum! Upload \"" + path + "\""
+                    + " from user \"" + loggedInUser + "\""
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("IOException while calculating checksum.");
+        }
+
+        Document doc = index.find(Filters.eq("path", physicalFile.getAbsolutePath())).first();
+        if(doc == null) {
+            // This is a new upload, create a new document in the index
+            index.insertOne(new Document()
+                    .append("path", physicalFile.getAbsolutePath())
+                    .append("checksum", checksum)
+                    .append("lastUpdatedBy", "client")
+            );
+        } else {
+            // Document already exists, time to update the checksum and lastUpdatedBy
+            index.updateOne(Filters.eq("path", physicalFile.getAbsolutePath()),
+                    new Document("$set", new Document("checksum", checksum))
+            );
+
+            index.updateOne(Filters.eq("path", physicalFile.getAbsolutePath()),
+                    new Document("$set", new Document("lastUpdatedBy", "client"))
+            );
         }
 
         return null;

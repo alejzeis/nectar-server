@@ -30,6 +30,7 @@ package io.github.jython234.nectar.server;
 
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoDatabase;
+import io.github.jython234.nectar.server.controller.FTSController;
 import io.github.jython234.nectar.server.struct.PeerInformation;
 import lombok.Getter;
 import org.ini4j.Ini;
@@ -95,6 +96,12 @@ public class NectarServerApplication {
         logger.info("Connecting to MongoDB database...");
 
         connectMongo();
+
+        logger.info("Building FTS Checksum index (this could take a while!)...");
+
+        FTSController.buildChecksumIndex();
+
+        logger.info("Done!");
 
         logger.info("Starting SpringApplication...");
 
