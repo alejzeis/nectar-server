@@ -276,7 +276,7 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }
 
-    private ResponseEntity checkUserAdmin(SessionToken token, MongoCollection<Document> users, Document doc) {
+    protected static ResponseEntity checkUserAdmin(SessionToken token, MongoCollection<Document> users, Document doc) {
         // getString will throw an exception if the key is not present in the document
         String loggedInUser = doc.getString("loggedInUser");
         if(loggedInUser.equals("none")) {

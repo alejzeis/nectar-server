@@ -91,6 +91,14 @@ public class NectarServerConfiguration {
             this.ftsDirectory = System.getProperty("user.dir") + "/" + ftsDirectory;
         } else this.ftsDirectory = ftsDirectory;
 
+        File ftsDirFile = new File(ftsDirectory);
+
+        if(!ftsDirFile.exists()) {
+            if(!ftsDirFile.mkdir()) {
+                NectarServerApplication.getLogger().warn("Failed to create FTS directory! (mkdir failed)");
+            }
+        }
+
         this.spaceThreshold = Long.parseLong(config.get("fts").get("spaceThreshold"));
 
         loadKeys();
