@@ -69,7 +69,7 @@ public class FTSController {
 
             // Process Upload ---------------------------------------------------------------------------------------------------------
 
-            if(!checkSpace()) {
+            if(!checkSpace(file.getSize())) {
                 return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE).body("FTS directory free space low.");
             }
 
@@ -214,7 +214,7 @@ public class FTSController {
         return null;
     }
 
-    private boolean checkSpace() {
+    private boolean checkSpace(long size) {
         File ftsDir = new File(NectarServerApplication.getConfiguration().getFtsDirectory());
 
         long usableSpace = (ftsDir.getFreeSpace() / 1000) / 1000;
@@ -222,6 +222,13 @@ public class FTSController {
             NectarServerApplication.getLogger().warn("FTS Directory only has " + usableSpace + "MB of free space left!");
             return false;
         }
+
+        long sizeMb = size / 1000 / 1000;
+        if(usableSpace <= sizeMb) {
+            NectarServerApplication.getLogger().warn("Rejected file upload of size " + sizeMb +": not enough space!");
+            return false;
+        }
+
         return true;
     }
 }

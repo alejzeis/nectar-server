@@ -84,12 +84,15 @@ public class NectarServerApplication {
         logger.info("Server ID is " + serverID);
 
         try {
+            logger.info("Loading configuration...");
             loadConfig();
         } catch (IOException e) {
             System.err.println("Failed to load configuration! IOException");
             e.printStackTrace(System.err);
             System.exit(1);
         }
+
+        logger.info("Connecting to MongoDB database...");
 
         connectMongo();
 
