@@ -159,7 +159,7 @@ public class SessionController {
         } else {
             try {
                 String auth = doc.getString("auth");
-                if(!auth.equals(Util.computeSHA256(authString))) {
+                if(!auth.equals(Util.computeSHA512(authString))) {
                     // Auth string does not match, unauthenticated
                     NectarServerApplication.getLogger().warn("Attempted token request for" + uuid + " from: "
                             + request.getRemoteAddr() + ", authentication string check failed."
@@ -217,7 +217,7 @@ public class SessionController {
         } else {
             try {
                 String pw = doc.getString("password");
-                if(!pw.equals(Util.computeSHA256(password))) {
+                if(!pw.equals(Util.computeSHA512(password))) {
                     // Passwords do not match.
                     NectarServerApplication.getLogger().warn("Attempted MANAGEMENT REQUEST from user \""
                             + username + "\": password check failed! (" + request.getRemoteAddr() + ")"

@@ -107,7 +107,7 @@ public class AuthController {
                 }
 
                 // Check their password
-                if(userDoc.getString("password").equals(Util.computeSHA256(password))) {
+                if(userDoc.getString("password").equals(Util.computeSHA512(password))) {
                     // Password check complete, now update the database with the state
                     clients.updateOne(Filters.eq("uuid", token.getUuid()),
                             new Document("$set", new Document("loggedInUser", username))
@@ -204,7 +204,7 @@ public class AuthController {
 
             while(true) {
                 if(clients.find(Filters.eq("uuid", uuid)).first() != null
-                        || clients.find(Filters.eq("auth", Util.computeSHA256(authString))).first() != null) {
+                        || clients.find(Filters.eq("auth", Util.computeSHA512(authString))).first() != null) {
                     // We have a collision of UUID or auth string, although it should be VERY VERY rare
                     uuid = UUID.randomUUID().toString();
                     authString = Util.generateNextRandomString();
@@ -216,7 +216,7 @@ public class AuthController {
 
             Document clientDoc = new Document()
                     .append("uuid", uuid)
-                    .append("auth", Util.computeSHA256(authString));
+                    .append("auth", Util.computeSHA512(authString));
             clients.insertOne(clientDoc);
 
             NectarServerApplication.getLogger().info("Registered new client \"" + uuid + "\"");
@@ -265,7 +265,7 @@ public class AuthController {
 
             clients.insertOne(new Document()
                     .append("username", username)
-                    .append("password", Util.computeSHA256(password))
+                    .append("password", Util.computeSHA512(password))
                     .append("admin", admin));
 
             NectarServerApplication.getLogger().info("Registered new user \"" + username + "\", admin: " + admin + ", from client " + token.getUuid());
