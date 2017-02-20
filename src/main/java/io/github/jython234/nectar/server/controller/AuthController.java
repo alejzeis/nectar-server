@@ -65,7 +65,7 @@ import java.util.UUID;
 public class AuthController {
 
     @SuppressWarnings("unchecked")
-    @RequestMapping(NectarServerApplication.ROOT_PATH + "/auth/login")
+    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/login", method = RequestMethod.POST)
     public ResponseEntity<String> login(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "user") String username,
                                 @RequestParam(value = "password") String password, HttpServletRequest request) {
 
@@ -168,7 +168,7 @@ public class AuthController {
     }
 
     @SuppressWarnings("unchecked")
-    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerClient")
+    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerClient", method = RequestMethod.POST)
     public ResponseEntity<String> registerClient(@RequestParam(value = "token") String jwtRaw,
                                                  @RequestParam(value = "clientInfo") String clientInfo,
                                                  HttpServletRequest request) {
@@ -231,7 +231,7 @@ public class AuthController {
     }
 
     @SuppressWarnings("unchecked")
-    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerUser")
+    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/auth/registerUser", method = RequestMethod.POST)
     public ResponseEntity<String> registerUser(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "user") String username,
                                                @RequestParam(value = "password") String password, @RequestParam(value = "admin") boolean admin,
                                                HttpServletRequest request) {
