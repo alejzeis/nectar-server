@@ -4,10 +4,13 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
+import io.github.jython234.nectar.server.struct.IndexJSON;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.bson.Document;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,7 +27,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -42,8 +44,8 @@ public class FTSController {
         MongoCollection<Document> index = NectarServerApplication.getDb().getCollection("ftsIndex");
 
         try {
-            buildChecksumDir(publicDir, index);
-            buildChecksumDir(usrDir, index);
+            buildChecksumDir(publicDir, true, index);
+            buildChecksumDir(usrDir, false, index);
         } catch (IOException e) {
             e.printStackTrace();
             NectarServerApplication.getLogger().error("FAILED TO COMPUTE FTS CHECKSUMS!");
@@ -52,7 +54,7 @@ public class FTSController {
     }
 
     // TODO: Clean database of entries of deleted files (only because they could be deleted while the server is offline)
-    private static void buildChecksumDir(File dir, MongoCollection<Document> index) throws IOException {
+    private static void buildChecksumDir(File dir, boolean isPublic, MongoCollection<Document> index) throws IOException {
         File[] contents = dir.listFiles();
         if(contents == null) return;
 
@@ -61,7 +63,7 @@ public class FTSController {
         for(File file : contents) {
             if(file.isDirectory()) {
                 // Recursion: build for all in that directory
-                buildChecksumDir(file, index);
+                buildChecksumDir(file, isPublic, index);
             } else {
                 // Is a file, build the checksum then
                 String checksum = Util.computeFileSHA256Checksum(file);
@@ -69,6 +71,8 @@ public class FTSController {
                 if(fileDoc == null) {
                     toInsert.add(new Document()
                             .append("path", file.getAbsolutePath())
+                            .append("storePath", Util.absoluteFTSToRelativeStore(file.getAbsolutePath()))
+                            .append("isPublic", isPublic)
                             .append("checksum", checksum)
                             .append("lastUpdatedBy", "server"));
                 } else {
@@ -106,7 +110,7 @@ public class FTSController {
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
 
         if(SessionController.getInstance().checkToken(token)) {
-            if(!token.isFull()) return ResponseEntity.badRequest().body("Management sessions can't access the FTS.");
+            if(!token.isFull()) return ResponseEntity.badRequest().body("Management sessions can't upload to the FTS.");
 
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
             MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
@@ -147,11 +151,11 @@ public class FTSController {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
                 }
 
-                res = doUpload("publicStore", loggedInUser, name, path, file);
+                res = doUpload("publicStore", loggedInUser, name, path, true, file);
                 if(res != null)
                     return res;
             } else {
-                res = doUpload("usrStore" + File.separator + loggedInUser, loggedInUser, name, path, file);
+                res = doUpload("usrStore" + File.separator + loggedInUser, loggedInUser, name, path, false, file);
                 if(res != null)
                     return res;
             }
@@ -176,7 +180,7 @@ public class FTSController {
         if(SessionController.getInstance().checkToken(token)) {
             if(!token.isFull()) {
                 response.setStatus(HttpStatus.BAD_REQUEST.value());
-                // Management sessions can't access the FTS.
+                // Management sessions can't download from the FTS.
                 return;
             }
 
@@ -238,6 +242,46 @@ public class FTSController {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/fts/checksumIndex")
+    public ResponseEntity checksumIndex(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "public") boolean isPublic,
+                                                HttpServletRequest request) {
+
+        ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+        if(r != null)
+            return r;
+
+        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+
+        if(SessionController.getInstance().checkToken(token)) {
+            MongoCollection<Document> index = NectarServerApplication.getDb().getCollection("ftsIndex");
+            MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+            Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
+
+            if(isPublic) {
+                // Public store, no user needs to be logged in
+                return ResponseEntity.status(HttpStatus.OK).body(constructIndexJSON(index, true, null));
+            } else {
+                // User's store, we need to check if they are logged in.
+                String loggedInUser;
+                try {
+                    // getString will throw an exception if the key is not present in the document
+                    loggedInUser = doc.getString("loggedInUser");
+                    if (loggedInUser.equals("none")) {
+                        // No user is logged in
+                        throw new RuntimeException(); // Move to catch block
+                    }
+                } catch(Exception e) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("A user needs to be logged in!");
+                }
+
+                return ResponseEntity.status(HttpStatus.OK).body(constructIndexJSON(index, false, loggedInUser));
+            }
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
+    }
+
     private void doDownload(File ftsPath, HttpServletResponse response) {
         try {
             response.setStatus(HttpStatus.OK.value());
@@ -251,7 +295,7 @@ public class FTSController {
         }
     }
 
-    private ResponseEntity doUpload(String ftsPath, String loggedInUser, String name, String path, MultipartFile file) {
+    private ResponseEntity doUpload(String ftsPath, String loggedInUser, String name, String path, boolean isPublic, MultipartFile file) {
         File uploadPath = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + ftsPath);
         MongoCollection<Document> index = NectarServerApplication.getDb().getCollection("ftsIndex");
 
@@ -292,6 +336,8 @@ public class FTSController {
             // This is a new upload, create a new document in the index
             index.insertOne(new Document()
                     .append("path", physicalFile.getAbsolutePath())
+                    .append("storePath", Util.absoluteFTSToRelativeStore(physicalFile.getAbsolutePath()))
+                    .append("isPublic", isPublic)
                     .append("checksum", checksum)
                     .append("lastUpdatedBy", "client")
             );
@@ -307,6 +353,23 @@ public class FTSController {
         }
 
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private IndexJSON[] constructIndexJSON(MongoCollection<Document> index, boolean isPublic, String loggedInUser) {
+        List<IndexJSON> list = new ArrayList();
+
+        index.find(Filters.eq("isPublic", isPublic)).forEach((Consumer<? super Document>) (Document doc) -> {
+            if(doc.getString("storePath").startsWith(loggedInUser) && !isPublic) {
+                // It's the user store
+                list.add(
+                        new IndexJSON(doc.getString("storePath"), doc.getString("checksum"), doc.getString("lastUpdatedBy")));
+            } else if(isPublic)
+                list.add(
+                    new IndexJSON(doc.getString("storePath"), doc.getString("checksum"), doc.getString("lastUpdatedBy")));
+        });
+
+        return list.toArray(new IndexJSON[list.size()]);
     }
 
     private boolean checkSpace(long size) {

@@ -103,6 +103,8 @@ public class NectarServerApplication {
 
         logger.info("Done!");
 
+        System.out.println(Util.absoluteFTSToRelativeStore("/home/jython234/IdeaProjects/nectar-server/fts/usrStore/jython234/test.txt"));
+
         logger.info("Starting SpringApplication...");
 
         SpringApplication.run(NectarServerApplication.class, args);

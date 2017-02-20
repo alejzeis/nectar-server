@@ -145,6 +145,13 @@ public class Util {
         return null;
     }
 
+    public static String absoluteFTSToRelativeStore(String absolutePath) {
+        String absFts = NectarServerApplication.getConfiguration().getFtsDirectory();
+        return absolutePath.replaceAll(absFts, "")
+                .replaceAll(File.separator + "publicStore" + File.separator, "")
+                .replaceAll(File.separator + "usrStore" + File.separator, "");
+    }
+
     /**
      * Compute the SHA-256 Hash of a String.
      * @param plaintext The raw text to be hashed.
@@ -152,6 +159,15 @@ public class Util {
      */
     public static String computeSHA256(String plaintext) {
         return DigestUtils.sha256Hex(plaintext);
+    }
+
+    /**
+     * Compute the SHA-512 Hash of a String.
+     * @param plaintext The raw text to be hashed.
+     * @return The has of the provided text.
+     */
+    public static String computeSHA512(String plaintext) {
+        return DigestUtils.sha512Hex(plaintext);
     }
 
     public static String computeFileSHA256Checksum(File file) throws IOException {
