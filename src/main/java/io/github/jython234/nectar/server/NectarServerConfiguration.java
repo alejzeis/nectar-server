@@ -95,8 +95,21 @@ public class NectarServerConfiguration {
 
         if(!ftsDirFile.exists()) {
             if(!ftsDirFile.mkdir()) {
-                NectarServerApplication.getLogger().warn("Failed to create FTS directory! (mkdir failed)");
+                NectarServerApplication.getLogger().error("Failed to create FTS directory! (mkdir failed)");
+                System.exit(1);
             }
+        }
+
+        // Create publicStore directory
+        if(!new File(this.ftsDirectory + File.separator + "publicStore").mkdir()) {
+            NectarServerApplication.getLogger().error("Failed to create FTS publicStore directory! (mkdir failed)");
+            System.exit(1);
+        }
+
+        // Create usrStore directory
+        if(!new File(this.ftsDirectory + File.separator + "usrStore").mkdir()) {
+            NectarServerApplication.getLogger().error("Failed to create FTS usrStore directory! (mkdir failed)");
+            System.exit(1);
         }
 
         this.spaceThreshold = Long.parseLong(config.get("fts").get("spaceThreshold"));

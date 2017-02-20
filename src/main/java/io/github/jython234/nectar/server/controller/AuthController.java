@@ -51,6 +51,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.security.MessageDigest;
 import java.util.UUID;
 
@@ -267,6 +268,15 @@ public class AuthController {
                     .append("username", username)
                     .append("password", Util.computeSHA512(password))
                     .append("admin", admin));
+
+            // Create new FTS store
+
+            File storeLocation = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator
+                    + "usrStore" + File.separator + username
+            );
+            if(!storeLocation.mkdir()) {
+                NectarServerApplication.getLogger().warn("Failed to create FTS store for new user \"" + username + "\" (mkdir failed)!");
+            }
 
             NectarServerApplication.getLogger().info("Registered new user \"" + username + "\", admin: " + admin + ", from client " + token.getUuid());
         } else {
