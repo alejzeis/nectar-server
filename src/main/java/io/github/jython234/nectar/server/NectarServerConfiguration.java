@@ -100,14 +100,17 @@ public class NectarServerConfiguration {
             }
         }
 
+        File publicStoreDir = new File(this.ftsDirectory + File.separator + "publicStore");
+        File usrStoreDir = new File(this.ftsDirectory + File.separator + "usrStore");
+
         // Create publicStore directory
-        if(!new File(this.ftsDirectory + File.separator + "publicStore").mkdir()) {
+        if(!publicStoreDir.exists() && !publicStoreDir.mkdir()) {
             NectarServerApplication.getLogger().error("Failed to create FTS publicStore directory! (mkdir failed)");
             System.exit(1);
         }
 
         // Create usrStore directory
-        if(!new File(this.ftsDirectory + File.separator + "usrStore").mkdir()) {
+        if(!usrStoreDir.exists() && !usrStoreDir.mkdir()) {
             NectarServerApplication.getLogger().error("Failed to create FTS usrStore directory! (mkdir failed)");
             System.exit(1);
         }
