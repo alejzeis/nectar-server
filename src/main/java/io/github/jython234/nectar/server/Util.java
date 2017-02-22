@@ -93,6 +93,9 @@ public class Util {
         return getContents(resourceLoader.getResource(resource).getInputStream());
     }
 
+    /**
+        Read the full contents of a file on the filesystem.
+    */
     public static String getFileContents(File file) throws IOException {
         return getContents(new FileInputStream(file));
     }
