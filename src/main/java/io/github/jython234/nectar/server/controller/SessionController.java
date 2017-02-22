@@ -325,7 +325,7 @@ public class SessionController {
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
 
         if(this.checkToken(token)) {
-            // TODO
+            this.sessions.get(token.getUuid()).handlePing(dataRaw);
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }

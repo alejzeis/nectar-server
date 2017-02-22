@@ -69,4 +69,8 @@ public class ClientSession {
         clients.updateOne(Filters.eq("uuid", token.getUuid()),
                 new Document("$set", new Document("state", state.toInt())));
     }
+
+    public void handlePing(String dataRaw) {
+
+    }
 }
