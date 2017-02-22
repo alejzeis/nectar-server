@@ -200,32 +200,7 @@ public class AuthController {
                 }
             }
 
-            String uuid = UUID.randomUUID().toString();
-            String authString = Util.generateNextRandomString();
-
-            while(true) {
-                if(clients.find(Filters.eq("uuid", uuid)).first() != null
-                        || clients.find(Filters.eq("auth", Util.computeSHA512(authString))).first() != null) {
-                    // We have a collision of UUID or auth string, although it should be VERY VERY rare
-                    uuid = UUID.randomUUID().toString();
-                    authString = Util.generateNextRandomString();
-                } else {
-                    // UUID and Auth string are unique, break out
-                    break;
-                }
-            }
-
-            Document clientDoc = new Document()
-                    .append("uuid", uuid)
-                    .append("auth", Util.computeSHA512(authString));
-            clients.insertOne(clientDoc);
-
-            NectarServerApplication.getLogger().info("Registered new client \"" + uuid + "\"");
-
-            JSONObject root = new JSONObject();
-            root.put("uuid", uuid);
-            root.put("auth", authString);
-            return ResponseEntity.ok(root.toJSONString());
+            return ResponseEntity.ok(registerClientToDatabase(request.getRemoteAddr()).toJSONString());
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/invalid.");
         }
@@ -311,5 +286,39 @@ public class AuthController {
             // User is confirmed logged in and admin, all checks passed.
         }
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    protected static JSONObject registerClientToDatabase(String ip) {
+        MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+
+        String uuid = UUID.randomUUID().toString();
+        String authString = Util.generateNextRandomString();
+
+        while(true) {
+            if(clients.find(Filters.eq("uuid", uuid)).first() != null
+                    || clients.find(Filters.eq("auth", Util.computeSHA512(authString))).first() != null) {
+                // We have a collision of UUID or auth string, although it should be VERY VERY rare
+                uuid = UUID.randomUUID().toString();
+                authString = Util.generateNextRandomString();
+            } else {
+                // UUID and Auth string are unique, break out
+                break;
+            }
+        }
+
+        Document clientDoc = new Document()
+                .append("uuid", uuid)
+                .append("auth", Util.computeSHA512(authString))
+                .append("registeredAt", System.currentTimeMillis())
+                .append("registeredBy", ip);
+        clients.insertOne(clientDoc);
+
+        NectarServerApplication.getLogger().info("Registered new client \"" + uuid + "\"");
+
+        JSONObject root = new JSONObject();
+        root.put("uuid", uuid);
+        root.put("auth", authString);
+        return root;
     }
 }

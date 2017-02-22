@@ -32,8 +32,13 @@ import com.mongodb.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import io.github.jython234.nectar.server.controller.FTSController;
 import io.github.jython234.nectar.server.struct.PeerInformation;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import lombok.Getter;
 import org.ini4j.Ini;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
@@ -63,6 +68,8 @@ public class NectarServerApplication {
     public static final String serverID = UUID.randomUUID().toString();
     public static final PeerInformation SERVER_INFORMATION = generateServerInfo();
 
+    @Getter private static String deploymentHash;
+
     private static MongoClient mongoClient;
     @Getter private static MongoDatabase db;
 
@@ -89,6 +96,14 @@ public class NectarServerApplication {
             loadConfig();
         } catch (IOException e) {
             System.err.println("Failed to load configuration! IOException");
+            e.printStackTrace(System.err);
+            System.exit(1);
+        }
+
+        try {
+            setupDeployment();
+        } catch (IOException e) {
+            System.err.println("Failed to setup deployment token!");
             e.printStackTrace(System.err);
             System.exit(1);
         }
@@ -144,6 +159,54 @@ public class NectarServerApplication {
             logger.error("Failed to connect to MongoDB database!");
             System.exit(1);
         }
+    }
+
+    private static void setupDeployment() throws IOException {
+        logger.info("Client Deployment System is: " + (configuration.isDeploymentEnabled() ? "ENABLED" : "DISABLED"));
+        if(configuration.isDeploymentEnabled()) {
+            File tokenFile = new File(configDir + File.separator + "deployToken.txt");
+            if(!tokenFile.exists()) {
+                generateNewDeploymentToken(tokenFile);
+            } else {
+                try {
+                    String contents = Util.getFileContents(tokenFile).replaceAll("\r", "").replaceAll("\n", "");
+
+                    Jwts.parser().setSigningKey(NectarServerApplication.getConfiguration().getServerPublicKey())
+                            .parse(contents); // Verify signature
+
+                    getDeploymentHashFromToken(Util.getJWTPayload(contents));
+                } catch(Exception e) {
+                    e.printStackTrace();
+                    logger.warn("Failed to load deployment token from disk, generating new...");
+                    generateNewDeploymentToken(tokenFile);
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void generateNewDeploymentToken(File tokenFile) throws IOException {
+        deploymentHash = Util.computeSHA256(serverID);
+
+        JSONObject root = new JSONObject();
+        root.put("timestamp", System.currentTimeMillis());
+        root.put("hash", deploymentHash);
+
+        String jwt = Jwts.builder()
+                .setPayload(root.toJSONString())
+                .signWith(SignatureAlgorithm.ES384, configuration.getServerPrivateKey())
+                .compact(); // Sign and build the JWT
+
+        Util.putFileContents(jwt, tokenFile);
+
+        logger.info("Generated new deployment token.");
+    }
+
+    private static void getDeploymentHashFromToken(String payload) throws ParseException {
+        JSONParser parser = new JSONParser();
+
+        JSONObject obj = (JSONObject) parser.parse(payload);
+        deploymentHash = (String) obj.get("hash");
     }
 
     private static PeerInformation generateServerInfo() {

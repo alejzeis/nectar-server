@@ -90,7 +90,21 @@ public class Util {
      * @return The full contents of the resource file as a String.
      */
     public static String getResourceContents(String resource) throws IOException {
-        InputStream in = resourceLoader.getResource(resource).getInputStream();
+        return getContents(resourceLoader.getResource(resource).getInputStream());
+    }
+
+    public static String getFileContents(File file) throws IOException {
+        return getContents(new FileInputStream(file));
+    }
+
+    public static void putFileContents(String contents, File file) throws IOException {
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)));
+
+        writer.write(contents);
+        writer.close();
+    }
+
+    public static String getContents(InputStream in) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(in));
 
         String line;
@@ -98,6 +112,8 @@ public class Util {
         while((line = reader.readLine()) != null) {
             sb.append(line).append("\n");
         }
+
+        reader.close();
 
         return sb.toString();
     }
@@ -181,7 +197,7 @@ public class Util {
         FileInputStream in = new FileInputStream(file);
 
         byte[] bytes = new byte[1024];
-        int bytesCount = 0;
+        int bytesCount;
 
         while((bytesCount = in.read(bytes)) != -1) {
             digest.update(bytes, 0, bytesCount);

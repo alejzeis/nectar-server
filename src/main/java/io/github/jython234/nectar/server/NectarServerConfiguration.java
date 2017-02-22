@@ -59,6 +59,9 @@ public class NectarServerConfiguration {
     @Getter private final int dbPort;
     @Getter private final String dbName;
 
+    // Deployment Section --------------------------------------
+    @Getter private final boolean deploymentEnabled;
+
     // Security Section ----------------------------------------
     @Getter private final String serverPrivateKeyLocation;
     @Getter private final String serverPublicKeyLocation;
@@ -79,6 +82,8 @@ public class NectarServerConfiguration {
         this.dbIP = config.get("db").get("ip");
         this.dbPort = Integer.parseInt(config.get("db").get("port"));
         this.dbName = config.get("db").get("name");
+
+        this.deploymentEnabled = Boolean.parseBoolean(config.get("deployment").get("enabled"));
 
         this.serverPrivateKeyLocation = config.get("security").get("serverPrivateKey");
         this.serverPublicKeyLocation = config.get("security").get("serverPublicKey");
