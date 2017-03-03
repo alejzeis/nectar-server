@@ -34,6 +34,7 @@ import io.github.jython234.nectar.server.ClientSession;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
 import io.github.jython234.nectar.server.struct.ClientState;
+import io.github.jython234.nectar.server.struct.ManagementSessionToken;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.impl.DefaultClaims;
@@ -64,13 +65,18 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 public class SessionController {
     public static final int TOKEN_EXPIRE_TIME = 1800000; // Token expire time is 30 minutes
+    public static final int MGMT_TOKEN_EXPIRE_TIME = TOKEN_EXPIRE_TIME;
 
     @Getter private static SessionController instance;
 
+    // Key String is UUID of client
     private Map<String, ClientSession> sessions;
+    // Key String is IP address of client
+    private Map<String, ManagementSessionToken> mgmtSessions;
 
     public SessionController() {
         this.sessions = new ConcurrentHashMap<>();
+        this.mgmtSessions = new ConcurrentHashMap<>();
 
         instance = this;
     }
@@ -96,6 +102,15 @@ public class SessionController {
                 }
             }
         });
+
+        mgmtSessions.values().forEach((ManagementSessionToken token) -> {
+            if((System.currentTimeMillis() - token.getTimestamp()) >= token.getExpires()) { // Check if the token has expired
+                // Session Token has expired, revoke it
+                NectarServerApplication.getLogger().info("MANAGEMENT Token for " + token.getClientIP() + " has expired, session removed.");
+
+                sessions.remove(token.getClientIP());
+            }
+        });
     }
 
     /**
@@ -110,6 +125,25 @@ public class SessionController {
                     && session.getToken().getUuid().equals(token.getUuid())
                     && session.getToken().getTimestamp() == token.getTimestamp()
                     && session.getToken().getExpires() == token.getExpires()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks if a ManagementSessionToken is valid, and
+     * has been issued by this server instance.
+     * @param token The token to check.
+     * @return If the token has been found and verified issued.
+     */
+    public boolean checkManagementToken(ManagementSessionToken token) {
+        for(ManagementSessionToken mst : mgmtSessions.values()) {
+            if(token.getServerID().equals(NectarServerApplication.serverID)
+                    && token.getClientIP().equals(mst.getClientIP())
+                    && token.getTimestamp() == mst.getTimestamp()
+                    && token.getExpires() == mst.getExpires()) {
                 return true;
             }
         }
@@ -187,7 +221,7 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token already issued for this UUID!");
         }
 
-        SessionToken token = new SessionToken(true, NectarServerApplication.serverID, uuid, System.currentTimeMillis(), TOKEN_EXPIRE_TIME);
+        SessionToken token = new SessionToken(NectarServerApplication.serverID, uuid, System.currentTimeMillis(), TOKEN_EXPIRE_TIME);
         ClientSession session = new ClientSession(token);
         session.updateState(ClientState.ONLINE); // Client is now online
         this.sessions.put(uuid, session);
@@ -233,15 +267,13 @@ public class SessionController {
         }
 
         // Check if we have issued a token already for the client.
-        if(this.sessions.containsKey(NectarServerApplication.serverID)) {
+        if(this.mgmtSessions.containsKey(request.getRemoteAddr())) {
             // Token has been issued
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Another management session is currently logged in!");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Another management session from this IP address is currently logged in!");
         }
 
-        SessionToken token = new SessionToken(false, NectarServerApplication.serverID, NectarServerApplication.serverID, System.currentTimeMillis(), TOKEN_EXPIRE_TIME);
-        ClientSession session = new ClientSession(token);
-        session.updateState(ClientState.ONLINE);
-        this.sessions.put(NectarServerApplication.serverID, session);
+        ManagementSessionToken token = new ManagementSessionToken(NectarServerApplication.serverID, request.getRemoteAddr(), System.currentTimeMillis(), MGMT_TOKEN_EXPIRE_TIME);
+        this.mgmtSessions.put(request.getRemoteAddr(), token);
 
         String jwt = Jwts.builder()
                 .setPayload(token.constructJSON().toJSONString())
@@ -259,15 +291,12 @@ public class SessionController {
         if(r != null)
             return r;
 
-        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
-        if(this.checkToken(token)) {
-            if(token.isFull()) {
-                return ResponseEntity.badRequest().body("This token is not from a management session!");
-            }
-
-            this.sessions.get(token.getUuid()).updateState(ClientState.UNKNOWN);
-            this.sessions.remove(token.getUuid()); // Remove
+        if(this.checkManagementToken(token)) {
+            this.mgmtSessions.remove(token.getClientIP()); // Remove
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }
@@ -285,14 +314,17 @@ public class SessionController {
             return r;
 
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
         if(this.checkToken(token)) { // Check if the token has expired
-            if(!token.isFull()) {
-                return ResponseEntity.badRequest().body("Management sessions can not update state.");
-            }
-
             try {
                 ClientState cstate = ClientState.fromInt(state);
+
+                if(cstate == this.sessions.get(token.getUuid()).getState()) {
+                    return ResponseEntity.status(HttpStatus.NOT_MODIFIED).body("Client State is the same.");
+                }
+
                 this.sessions.get(token.getUuid()).updateState(cstate);
 
                 switch (cstate) {
@@ -323,6 +355,8 @@ public class SessionController {
             return r;
 
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
         if(this.checkToken(token)) {
             this.sessions.get(token.getUuid()).handlePing(dataRaw);

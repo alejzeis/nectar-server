@@ -43,25 +43,18 @@ import org.bson.Document;
  * @author jython234
  */
 public class ClientSession {
-    @Getter private final boolean full;
     @Getter private SessionToken token;
     @Getter private ClientState state;
     @Getter private long lastPing;
 
     public ClientSession(SessionToken token) {
         this.token = token;
-        this.full = token.isFull();
 
         this.state = ClientState.UNKNOWN;
         this.lastPing = System.currentTimeMillis();
     }
 
     public void updateState(ClientState state) {
-        if(!token.isFull()) { // Check if the session is a management session or not.
-            this.state = state;
-            return;
-        }
-
         NectarServerApplication.getLogger().info("Client " + token.getUuid() + " state updated to: " + state.toString());
         this.state = state;
 

@@ -136,10 +136,10 @@ public class FTSController {
             return r;
 
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
         if(SessionController.getInstance().checkToken(token)) {
-            if(!token.isFull()) return ResponseEntity.badRequest().body("Management sessions can't upload to the FTS.");
-
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
             MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
             Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
@@ -204,14 +204,13 @@ public class FTSController {
         }
 
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if (token == null) {
+            response.setStatus(HttpStatus.BAD_REQUEST.value());
+            // INVALID TOKENTYPE
+            return;
+        }
 
         if(SessionController.getInstance().checkToken(token)) {
-            if(!token.isFull()) {
-                response.setStatus(HttpStatus.BAD_REQUEST.value());
-                // Management sessions can't download from the FTS.
-                return;
-            }
-
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
             Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
 
@@ -280,6 +279,8 @@ public class FTSController {
             return r;
 
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
         if(SessionController.getInstance().checkToken(token)) {
             MongoCollection<Document> index = NectarServerApplication.getDb().getCollection("ftsIndex");

@@ -32,6 +32,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
+import io.github.jython234.nectar.server.struct.ManagementSessionToken;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.Jwts;
@@ -75,6 +76,8 @@ public class AuthController {
             return r;
 
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
         if(SessionController.getInstance().checkToken(token)) {
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
@@ -134,6 +137,8 @@ public class AuthController {
             return r;
 
         SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
         if(SessionController.getInstance().checkToken(token)) {
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
@@ -178,28 +183,11 @@ public class AuthController {
         if(r != null)
             return r;
 
-        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
-        if(SessionController.getInstance().checkToken(token)) {
-            MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
-            MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
-
-            if(token.isFull()) {
-                // Is not a management session
-                Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
-
-                if(doc == null)
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find entry in database for client.");
-
-                try {
-                    ResponseEntity re = checkUserAdmin(token, users, doc);
-                    if(re != null)
-                        return re;
-                } catch(Exception e) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
-                }
-            }
-
+        if(SessionController.getInstance().checkManagementToken(token)) {
             return ResponseEntity.ok(registerClientToDatabase(request.getRemoteAddr()).toJSONString());
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/invalid.");
@@ -215,29 +203,18 @@ public class AuthController {
         if(r != null)
             return r;
 
-        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
-        if(SessionController.getInstance().checkToken(token)) {
+        if(SessionController.getInstance().checkManagementToken(token)) {
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
             MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
-            if(token.isFull()) {
-                // Is not a management session
-                Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
-
-                if(doc == null)
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find entry in database for client.");
-
-                try {
-                    ResponseEntity re = checkUserAdmin(token, users, doc);
-                    if(re != null)
-                        return re;
-                } catch(Exception e) {
-                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
-                }
-            }
 
             if(users.find(Filters.eq("username", username)).first() != null)
                 return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists!");
+
+            // TODO: RUN USERNAME AND PASSWORD REGEX CHECKS!
 
             clients.insertOne(new Document()
                     .append("username", username)
@@ -253,7 +230,7 @@ public class AuthController {
                 NectarServerApplication.getLogger().warn("Failed to create FTS store for new user \"" + username + "\" (mkdir failed)!");
             }
 
-            NectarServerApplication.getLogger().info("Registered new user \"" + username + "\", admin: " + admin + ", from client " + token.getUuid());
+            NectarServerApplication.getLogger().info("Registered new user \"" + username + "\", admin: " + admin + ", from MANAGEMENT SESSION: " + token.getClientIP());
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }

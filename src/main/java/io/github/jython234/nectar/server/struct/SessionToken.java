@@ -41,8 +41,9 @@ import org.json.simple.parser.ParseException;
  * @author jython234
  */
 @RequiredArgsConstructor
-public class SessionToken {
-    @Getter private final boolean full;
+public class SessionToken implements Token {
+    public static final String TOKEN_TYPE = "SESSION";
+
     @Getter private final String serverID;
     @Getter private final String uuid;
     @Getter private final long timestamp;
@@ -54,19 +55,27 @@ public class SessionToken {
         try {
             JSONObject obj = (JSONObject) parser.parse(json);
 
-            if(!obj.containsKey("uuid") || !obj.containsKey("timestamp") || !obj.containsKey("expires"))
+            if(!obj.containsKey("TOKENTYPE") || !obj.get("TOKENTYPE").equals(TOKEN_TYPE)) {
+                return null;
+            }
+
+            if(!obj.containsKey("serverID") || !obj.containsKey("uuid") ||
+                    !obj.containsKey("timestamp") || !obj.containsKey("expires"))
                 throw new IllegalArgumentException("JSON is invalid: missing keys!");
 
-            return new SessionToken((boolean) obj.get("full"), (String) obj.get("serverID"), (String) obj.get("uuid"), (long) obj.get("timestamp"), (long) obj.get("expires"));
+            return new SessionToken((String) obj.get("serverID"), (String) obj.get("uuid"), (long) obj.get("timestamp"), (long) obj.get("expires"));
         } catch (ParseException e) {
             throw new IllegalArgumentException(e);
         }
     }
 
     @SuppressWarnings("unchecked")
+    @Override
     public JSONObject constructJSON() {
         JSONObject root = new JSONObject();
-        root.put("full", full);
+        root.put("TOKENTYPE", TOKEN_TYPE);
+
+        root.put("serverID", serverID);
         root.put("uuid", uuid);
         root.put("timestamp", timestamp);
         root.put("expires", expires);
