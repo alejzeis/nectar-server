@@ -339,7 +339,8 @@ public class FTSController {
 
         File physicalFile = new File(uploadPath + File.separator + name);
         try {
-            FileUtils.copyInputStreamToFile(file.getInputStream(), physicalFile);
+            //FileUtils.copyInputStreamToFile(file.getInputStream(), physicalFile);
+            file.transferTo(physicalFile); // Do a transfer, in case the file has already been saved to a temporary location on disk.
         } catch (IOException e) {
             e.printStackTrace();
             NectarServerApplication.getLogger().error("IOException while processing FTS upload \"" + path + "\""
