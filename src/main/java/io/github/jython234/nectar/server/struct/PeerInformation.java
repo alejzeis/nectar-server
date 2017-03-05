@@ -50,6 +50,7 @@ public class PeerInformation {
         @Getter private final String runtime;
         @Getter private final String arch;
         @Getter private final String os;
+        @Getter private final String osVersion;
         @Getter private final String cpu;
         @Getter private final int cpus;
     }

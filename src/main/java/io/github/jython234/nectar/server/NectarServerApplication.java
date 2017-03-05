@@ -216,8 +216,9 @@ public class NectarServerApplication {
                 serverID,
                 new PeerInformation.SystemInfo(
                         System.getProperty("java.version"),
-                        System.getenv("os.arch"),
-                        System.getenv("os.name"),
+                        System.getProperty("os.arch"),
+                        System.getProperty("os.name"),
+                        System.getProperty("os.version"),
                         "unknown", // TODO: Parse /proc/cpuinfo
                         Runtime.getRuntime().availableProcessors()
                 )
