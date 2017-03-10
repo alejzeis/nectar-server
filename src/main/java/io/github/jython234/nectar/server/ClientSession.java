@@ -64,6 +64,6 @@ public class ClientSession {
     }
 
     public void handlePing(String dataRaw) {
-
+        this.lastPing = System.currentTimeMillis();
     }
 }
