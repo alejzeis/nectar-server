@@ -35,6 +35,9 @@ import io.github.jython234.nectar.server.struct.ClientState;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import lombok.Getter;
 import org.bson.Document;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 /**
  * Represents a Client Session with
@@ -46,6 +49,9 @@ public class ClientSession {
     @Getter private SessionToken token;
     @Getter private ClientState state;
     @Getter private long lastPing;
+
+    @Getter private int otherUpdates = -1;
+    @Getter private int securityUpdates = -1;
 
     public ClientSession(SessionToken token) {
         this.token = token;
@@ -63,7 +69,23 @@ public class ClientSession {
                 new Document("$set", new Document("state", state.toInt())));
     }
 
-    public void handlePing(String dataRaw) {
+    public boolean handlePing(String dataRaw) {
+        String payload = Util.getJWTPayload(dataRaw);
+
+        JSONParser parser = new JSONParser();
+        JSONObject obj;
+        try {
+            obj = (JSONObject) parser.parse(payload);
+        } catch (ParseException e) {
+            NectarServerApplication.getLogger().warn("Invalid JSON from client ping data from \"" + this.token.getUuid() + "\"");
+            return false;
+        }
+
         this.lastPing = System.currentTimeMillis();
+
+        this.securityUpdates = (int) obj.get("securityUpdates");
+        this.otherUpdates = (int) obj.get("otherUpdates");
+
+        return true;
     }
 }

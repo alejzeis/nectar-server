@@ -70,9 +70,9 @@ public class SessionController {
     @Getter private static SessionController instance;
 
     // Key String is UUID of client
-    private Map<String, ClientSession> sessions;
+    protected Map<String, ClientSession> sessions;
     // Key String is IP address of client
-    private Map<String, ManagementSessionToken> mgmtSessions;
+    protected Map<String, ManagementSessionToken> mgmtSessions;
 
     public SessionController() {
         this.sessions = new ConcurrentHashMap<>();
@@ -359,36 +359,13 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
         if(this.checkToken(token)) {
-            this.sessions.get(token.getUuid()).handlePing(dataRaw);
+            if(!this.sessions.get(token.getUuid()).handlePing(dataRaw)) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to process ping data!");
+            }
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
-    }
-
-    @RequestMapping(NectarServerApplication.ROOT_PATH + "/session/queryState")
-    public ResponseEntity<Integer> queryState(@RequestParam(value = "uuid") String uuid) {
-        if(this.sessions.containsKey(uuid)) {
-            return ResponseEntity.ok(this.sessions.get(uuid).getState().toInt());
-        }
-
-        if(uuid.equals(NectarServerApplication.serverID)) {
-            // Since the above check failed (no token for management session found)
-            // That means that there is no management session logged in, so return offline
-            return ResponseEntity.ok(ClientState.SHUTDOWN.toInt());
-        }
-
-        // The session requested is not connected. Check the database then.
-        MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
-        Document doc = clients.find(Filters.eq("uuid", uuid)).first();
-        if(doc == null) {
-            // We couldn't find a client with the UUID, that means it's an invalid client UUID
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(-1);
-        } else {
-            // We found the client
-            // Default value is UNKNOWN, in case the state was never set in the database yet.
-            return ResponseEntity.ok(doc.getInteger("state", ClientState.UNKNOWN.toInt()));
-        }
     }
 }
