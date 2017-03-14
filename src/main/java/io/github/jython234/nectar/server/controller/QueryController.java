@@ -66,7 +66,7 @@ public class QueryController {
         JSONObject returnJSON = new JSONObject();
 
         if(SessionController.getInstance().sessions.containsKey(uuid)) {
-            returnJSON.put("otherUpdates", SessionController.getInstance().sessions.get(uuid).getOtherUpdates());
+            returnJSON.put("updates", SessionController.getInstance().sessions.get(uuid).getUpdates());
             returnJSON.put("securityUpdates", SessionController.getInstance().sessions.get(uuid).getSecurityUpdates());
 
             return ResponseEntity.ok(returnJSON.toJSONString());

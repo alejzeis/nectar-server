@@ -39,6 +39,8 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import java.util.Base64;
+
 /**
  * Represents a Client Session with
  * a token.
@@ -50,7 +52,7 @@ public class ClientSession {
     @Getter private ClientState state;
     @Getter private long lastPing;
 
-    @Getter private int otherUpdates = -1;
+    @Getter private int updates = -1;
     @Getter private int securityUpdates = -1;
 
     public ClientSession(SessionToken token) {
@@ -70,7 +72,7 @@ public class ClientSession {
     }
 
     public boolean handlePing(String dataRaw) {
-        String payload = Util.getJWTPayload(dataRaw);
+        String payload = new String(Base64.getUrlDecoder().decode(dataRaw));
 
         JSONParser parser = new JSONParser();
         JSONObject obj;
@@ -83,8 +85,8 @@ public class ClientSession {
 
         this.lastPing = System.currentTimeMillis();
 
-        this.securityUpdates = (int) obj.get("securityUpdates");
-        this.otherUpdates = (int) obj.get("otherUpdates");
+        this.updates = ((Long) obj.get("updates")).intValue();
+        this.securityUpdates = ((Long) obj.get("securityUpdates")).intValue();
 
         return true;
     }
