@@ -33,13 +33,20 @@ import com.mongodb.client.model.Filters;
 import io.github.jython234.nectar.server.controller.SessionController;
 import io.github.jython234.nectar.server.struct.ClientState;
 import io.github.jython234.nectar.server.struct.SessionToken;
+import io.github.jython234.nectar.server.struct.operation.ClientOperation;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import lombok.Getter;
 import org.bson.Document;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import java.util.Base64;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Collectors;
 
 /**
  * Represents a Client Session with
@@ -52,6 +59,8 @@ public class ClientSession {
     @Getter private ClientState state;
     @Getter private long lastPing;
 
+    @Getter private Queue<ClientOperation> operationQueue = new ConcurrentLinkedQueue<>();
+
     @Getter private int updates = -1;
     @Getter private int securityUpdates = -1;
 
@@ -60,6 +69,23 @@ public class ClientSession {
 
         this.state = ClientState.UNKNOWN;
         this.lastPing = System.currentTimeMillis();
+    }
+
+    public String constructOperationQueueJWT() {
+        JSONObject root = new JSONObject();
+        JSONArray array;
+        if(this.operationQueue.isEmpty()) {
+            array = new JSONArray();
+        } else {
+            array = this.operationQueue.stream().map(ClientOperation::createJSON).collect(Collectors.toCollection(JSONArray::new));
+        }
+
+        root.put("array", array);
+
+        return Jwts.builder()
+                .setPayload(root.toJSONString())
+                .signWith(SignatureAlgorithm.ES384, NectarServerApplication.getConfiguration().getServerPrivateKey())
+                .compact(); // Sign and build the JWT
     }
 
     public void updateState(ClientState state) {
