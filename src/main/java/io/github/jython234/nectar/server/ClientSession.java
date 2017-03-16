@@ -34,9 +34,11 @@ import io.github.jython234.nectar.server.controller.SessionController;
 import io.github.jython234.nectar.server.struct.ClientState;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import io.github.jython234.nectar.server.struct.operation.ClientOperation;
+import io.github.jython234.nectar.server.struct.operation.OperationStatus;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import lombok.Getter;
+import lombok.Setter;
 import org.bson.Document;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -59,6 +61,9 @@ public class ClientSession {
     @Getter private ClientState state;
     @Getter private long lastPing;
 
+    @Getter @Setter private OperationStatus processingStatus;
+    @Getter @Setter private int processingNumber = -1;
+    @Getter @Setter private String processingMessage = "IDLE";
     @Getter private Queue<ClientOperation> operationQueue = new ConcurrentLinkedQueue<>();
 
     @Getter private int updates = -1;
@@ -68,6 +73,8 @@ public class ClientSession {
         this.token = token;
 
         this.state = ClientState.UNKNOWN;
+        this.processingStatus = OperationStatus.IDLE;
+
         this.lastPing = System.currentTimeMillis();
     }
 
@@ -86,6 +93,21 @@ public class ClientSession {
                 .setPayload(root.toJSONString())
                 .signWith(SignatureAlgorithm.ES384, NectarServerApplication.getConfiguration().getServerPrivateKey())
                 .compact(); // Sign and build the JWT
+    }
+
+    public void updateOperationStatus(int operationNumber, OperationStatus opStatus, String message) {
+        if(opStatus == OperationStatus.IDLE) {
+            this.setProcessingNumber(-1);
+            this.setProcessingMessage("IDLE");
+        } else {
+            this.setProcessingNumber(operationNumber);
+            this.setProcessingStatus(opStatus);
+            this.setProcessingMessage(message);
+        }
+
+        if(opStatus == OperationStatus.IN_PROGRESS) {
+            this.getOperationQueue().remove(); // Remove the one from the top of the queue
+        }
     }
 
     public void updateState(ClientState state) {

@@ -14,9 +14,9 @@ import org.json.simple.JSONObject;
  */
 @RequiredArgsConstructor
 public class ClientOperation {
-    @Getter private int operationNumber;
-    @Getter private OperationID id;
-    @Getter private JSONObject payload;
+    @Getter private final int operationNumber;
+    @Getter private final OperationID id;
+    @Getter private final JSONObject payload;
 
     @SuppressWarnings("unchecked")
     public JSONObject createJSON() {
