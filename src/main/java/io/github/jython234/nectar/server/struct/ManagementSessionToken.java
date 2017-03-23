@@ -34,11 +34,11 @@ public class ManagementSessionToken implements Token {
                 return null;
             }
 
-            if(!obj.containsKey("serverID") || !obj.containsKey("serverIP") ||
+            if(!obj.containsKey("serverID") || !obj.containsKey("clientIP") ||
                     !obj.containsKey("timestamp") || !obj.containsKey("expires"))
                 throw new IllegalArgumentException("JSON is invalid: missing keys!");
 
-            return new ManagementSessionToken((String) obj.get("serverID"), (String) obj.get("serverIP"), (long) obj.get("timestamp"), (long) obj.get("expires"));
+            return new ManagementSessionToken((String) obj.get("serverID"), (String) obj.get("clientIP"), (long) obj.get("timestamp"), (long) obj.get("expires"));
         } catch (ParseException e) {
             throw new IllegalArgumentException(e);
         }

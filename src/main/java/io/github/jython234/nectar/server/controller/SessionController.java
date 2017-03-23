@@ -108,7 +108,7 @@ public class SessionController {
                 // Session Token has expired, revoke it
                 NectarServerApplication.getLogger().info("MANAGEMENT Token for " + token.getClientIP() + " has expired, session removed.");
 
-                sessions.remove(token.getClientIP());
+                mgmtSessions.remove(token.getClientIP());
             }
         });
     }
@@ -280,7 +280,7 @@ public class SessionController {
                 .signWith(SignatureAlgorithm.ES384, NectarServerApplication.getConfiguration().getServerPrivateKey())
                 .compact(); // Sign and build the JWT
 
-        NectarServerApplication.getLogger().info("Issued token for new MANAGEMENT client " + request.getRemoteAddr());
+        NectarServerApplication.getLogger().info("Issued token for new MANAGEMENT client user \"" + username + "\" at " + request.getRemoteAddr());
 
         return ResponseEntity.ok(jwt); // Return the token
     }
