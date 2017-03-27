@@ -65,7 +65,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 public class SessionController {
     public static final int TOKEN_EXPIRE_TIME = 1800000; // Token expire time is 30 minutes
-    public static final int MGMT_TOKEN_EXPIRE_TIME = TOKEN_EXPIRE_TIME;
+    public static final int MGMT_TOKEN_EXPIRE_TIME = 600000; // 10 minutes
 
     @Getter private static SessionController instance;
 
