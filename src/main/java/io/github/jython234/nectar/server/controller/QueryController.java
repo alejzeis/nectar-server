@@ -1,7 +1,10 @@
 package io.github.jython234.nectar.server.controller;
 
+import com.mongodb.Block;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.Filters;
+import io.github.jython234.nectar.server.ClientSession;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
 import io.github.jython234.nectar.server.struct.ClientState;
@@ -13,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * REST controller which handles queries for various
@@ -74,5 +79,38 @@ public class QueryController {
 
         // The session requested is not connected. No data avaliable then.
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Session not found or is not connected.");
+    }
+
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/query/queryClient")
+    public ResponseEntity queryClients(@RequestParam(value = "token") String jwtRaw, HttpServletRequest request) {
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
+
+        if(!SessionController.getInstance().checkManagementToken(token)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
+
+        JSONObject returnJSON = new JSONObject();
+
+        MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+        clients.find().forEach((Block<Document>) document -> {
+            String uuid = document.getString("uuid");
+            ClientState state = ClientState.fromInt(document.getInteger("state", ClientState.UNKNOWN.toInt()));
+
+            JSONObject clientJSON = new JSONObject();
+            clientJSON.put("state", state.toInt());
+
+            if(SessionController.getInstance().sessions.containsKey(uuid)) {
+                // Check if this client is currently online, so we can get update count
+                // And operation information
+                ClientSession session = SessionController.getInstance().sessions.get(uuid);
+
+                clientJSON.put("updates", session.getUpdates());
+                clientJSON.put("securityUpdates", session.getSecurityUpdates());
+
+            }
+
+        });
     }
 }
