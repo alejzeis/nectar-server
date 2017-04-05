@@ -81,7 +81,8 @@ public class QueryController {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Session not found or is not connected.");
     }
 
-    @RequestMapping(NectarServerApplication.ROOT_PATH + "/query/queryClient")
+    @SuppressWarnings("unchecked")
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/query/queryClients")
     public ResponseEntity queryClients(@RequestParam(value = "token") String jwtRaw, HttpServletRequest request) {
         ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
         if(token == null)
@@ -109,8 +110,13 @@ public class QueryController {
                 clientJSON.put("updates", session.getUpdates());
                 clientJSON.put("securityUpdates", session.getSecurityUpdates());
 
+                clientJSON.put("operationCount", session.getOperationQueue().size());
+                clientJSON.put("operationStatus", session.getProcessingStatus().toInt());
             }
 
+            returnJSON.put(uuid, clientJSON);
         });
+
+        return ResponseEntity.ok(returnJSON.toJSONString());
     }
 }

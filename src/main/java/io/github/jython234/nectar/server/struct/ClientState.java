@@ -85,6 +85,8 @@ public enum ClientState {
                 return SLEEP;
             case 3:
                 return RESTART;
+            case 4:
+                return UNKNOWN;
             default:
                 throw new IllegalArgumentException("State is invalid.");
         }
