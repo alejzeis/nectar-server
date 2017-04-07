@@ -119,4 +119,39 @@ public class QueryController {
 
         return ResponseEntity.ok(returnJSON.toJSONString());
     }
+
+    @SuppressWarnings("unchecked")
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/query/queryUsers")
+    public ResponseEntity queryUsers(@RequestParam(value = "token") String jwtRaw, HttpServletRequest request) {
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
+
+        if(!SessionController.getInstance().checkManagementToken(token)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
+
+        JSONObject returnJSON = new JSONObject();
+
+        MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+        MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
+        users.find().forEach((Block<Document>) document -> {
+            String username = document.getString("username");
+            boolean admin = document.getBoolean("admin", false);
+
+            JSONObject userJSON = new JSONObject();
+            userJSON.put("admin", admin);
+
+            Document clientDoc = clients.find(Filters.eq("loggedInUser", username)).first();
+            if(clientDoc == null) {
+                userJSON.put("signedIn", false);
+            } else {
+                userJSON.put("signedIn", true);
+            }
+
+            returnJSON.put(username, userJSON);
+        });
+
+        return ResponseEntity.ok(returnJSON.toJSONString());
+    }
 }
