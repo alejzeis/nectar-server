@@ -208,7 +208,6 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
         if(SessionController.getInstance().checkManagementToken(token)) {
-            MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
             MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
 
             if(users.find(Filters.eq("username", username)).first() != null)
@@ -216,10 +215,12 @@ public class AuthController {
 
             // TODO: RUN USERNAME AND PASSWORD REGEX CHECKS!
 
-            clients.insertOne(new Document()
+            users.insertOne(new Document()
                     .append("username", username)
                     .append("password", Util.computeSHA512(password))
-                    .append("admin", admin));
+                    .append("admin", admin)
+                    .append("registeredAt", System.currentTimeMillis())
+                    .append("registeredBy", request.getRemoteAddr()));
 
             // Create new FTS store
 
