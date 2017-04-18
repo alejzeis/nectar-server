@@ -63,9 +63,9 @@ public class NectarServerConfiguration {
     @Getter private final boolean deploymentEnabled;
 
     // Security Section ----------------------------------------
-    @Getter private final String serverPrivateKeyLocation;
-    @Getter private final String serverPublicKeyLocation;
-    @Getter private final String clientPublicKeyLocation;
+    @Getter private String serverPrivateKeyLocation;
+    @Getter private String serverPublicKeyLocation;
+    @Getter private String clientPublicKeyLocation;
 
     @Getter private ECPrivateKey serverPrivateKey;
     @Getter private ECPublicKey serverPublicKey;
@@ -88,6 +88,17 @@ public class NectarServerConfiguration {
         this.serverPrivateKeyLocation = config.get("security").get("serverPrivateKey");
         this.serverPublicKeyLocation = config.get("security").get("serverPublicKey");
         this.clientPublicKeyLocation = config.get("security").get("clientPublicKey");
+
+        // Convert key locations to absolute paths if relative to config dir
+
+        if(!serverPublicKeyLocation.startsWith("/"))
+            this.serverPublicKeyLocation = NectarServerApplication.getConfigDir() + "/" + serverPublicKeyLocation;
+
+        if(!serverPrivateKeyLocation.startsWith("/"))
+            this.serverPrivateKeyLocation = NectarServerApplication.getConfigDir() + "/" + serverPrivateKeyLocation;
+
+        if(!clientPublicKeyLocation.startsWith("/"))
+            this.clientPublicKeyLocation = NectarServerApplication.getConfigDir() + "/" + clientPublicKeyLocation;
 
         String ftsDirectory = config.get("fts").get("directory");
 

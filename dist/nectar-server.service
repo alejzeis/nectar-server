@@ -1,0 +1,10 @@
+[Unit]
+Description=Nectar-Server Daemon
+After=syslog.target network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/nectar-server
+
+[Install]
+WantedBy=multi-user.target

@@ -58,7 +58,7 @@ import java.util.UUID;
 @EnableScheduling
 public class NectarServerApplication {
     public static final String SOFTWARE = "Nectar-Server";
-    public static final String SOFTWARE_VERSION = "0.1.0-SNAPSHOT";
+    public static final String SOFTWARE_VERSION = "0.2.1-SNAPSHOT";
 
     public static final int API_VERSION_MAJOR = 3;
     public static final int API_VERSION_MINOR = 6;
