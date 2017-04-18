@@ -28,6 +28,7 @@
  */
 package io.github.jython234.nectar.server.controller;
 
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import io.github.jython234.nectar.server.NectarServerApplication;
@@ -38,6 +39,7 @@ import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureException;
+import org.apache.commons.io.FileUtils;
 import org.bson.BsonDocument;
 import org.bson.BsonString;
 import org.bson.Document;
@@ -50,9 +52,11 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.print.Doc;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.UUID;
 
@@ -231,7 +235,54 @@ public class AuthController {
                 NectarServerApplication.getLogger().warn("Failed to create FTS store for new user \"" + username + "\" (mkdir failed)!");
             }
 
-            NectarServerApplication.getLogger().info("Registered new user \"" + username + "\", admin: " + admin + ", from MANAGEMENT SESSION: " + token.getClientIP());
+            NectarServerApplication.getLogger().info("Registered new user \"" + username + "\", admin: " + admin + ", by MANAGEMENT SESSION: " + token.getClientIP());
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
+
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
+    }
+
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/auth/removeUser")
+    public ResponseEntity removeUser(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "user") String username, HttpServletRequest request) {
+        ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+        if(r != null)
+            return r;
+
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
+
+        if(SessionController.getInstance().checkManagementToken(token)) {
+            MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
+            MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+
+            // Check that the user exists
+            Document clientDoc = users.find(Filters.eq("username", username)).first();
+            if(clientDoc == null)
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Username not found in database!");
+
+            // Check that the user is not signed in
+            FindIterable<Document> clientsWithUserSignedIn = clients.find(Filters.eq("loggedInUser", username));
+            if(clientsWithUserSignedIn.first() != null)
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("The user is currently signed into a client!");
+
+            // Delete the user entry in the database
+            users.deleteOne(Filters.eq("username", username));
+
+            // Remove the user's FTS store
+
+            File storeLocation = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator
+                    + "usrStore" + File.separator + username
+            );
+
+            try {
+                FileUtils.deleteDirectory(storeLocation);
+            } catch (IOException e) {
+                NectarServerApplication.getLogger().warn("Failed to delete FTS store for former user \"" + username + "\"");
+            }
+
+            NectarServerApplication.getLogger().info("Removed user \"" + username + "\" by MANAGEMENT SESSION: " + token.getClientIP());
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }
