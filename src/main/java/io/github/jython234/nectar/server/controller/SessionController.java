@@ -31,6 +31,7 @@ package io.github.jython234.nectar.server.controller;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import io.github.jython234.nectar.server.ClientSession;
+import io.github.jython234.nectar.server.EventLog;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
 import io.github.jython234.nectar.server.struct.ClientState;
@@ -187,7 +188,8 @@ public class SessionController {
         if(doc == null) {
             // We can't find this client in the database
             // This means that the client is unregistered, so we drop the request
-            NectarServerApplication.getLogger().warn("Received token request from unregistered client "
+            NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.WARNING,
+                    "Received token request from unregistered client "
                     + request.getRemoteAddr() + " with UUID: " + uuid
             );
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("UUID not found in database.");
@@ -196,7 +198,8 @@ public class SessionController {
                 String auth = doc.getString("auth");
                 if(!auth.equals(Util.computeSHA512(authString))) {
                     // Auth string does not match, unauthenticated
-                    NectarServerApplication.getLogger().warn("Attempted token request for" + uuid + " from: "
+                    NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.WARNING,
+                            "Attempted token request for" + uuid + " from: "
                             + request.getRemoteAddr() + ", authentication string check failed."
                     );
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Authentication Strings do not match!");
@@ -204,6 +207,9 @@ public class SessionController {
             } catch(Exception e) {
                 NectarServerApplication.getLogger().warn("Failed to find auth string for \"" + uuid + "\" in database.");
                 NectarServerApplication.getLogger().warn("Is the database corrupted?");
+
+                NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.WARNING, "Failed to find auth string, database might be corrupt.");
+
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find auth string in database.");
             }
         }
@@ -231,7 +237,7 @@ public class SessionController {
                 .signWith(SignatureAlgorithm.ES384, NectarServerApplication.getConfiguration().getServerPrivateKey())
                 .compact(); // Sign and build the JWT
 
-        NectarServerApplication.getLogger().info("Issued token for new client " + request.getRemoteAddr() + " with UUID: " + uuid);
+        NectarServerApplication.getLogger().info("Issued new token for client " + request.getRemoteAddr() + " with UUID: " + uuid);
 
         return ResponseEntity.ok(jwt); // Return the token
     }
@@ -257,18 +263,26 @@ public class SessionController {
                     NectarServerApplication.getLogger().warn("Attempted MANAGEMENT REQUEST from user \""
                             + username + "\": password check failed! (" + request.getRemoteAddr() + ")"
                     );
+                    NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.WARNING, "Attempted management login from user "
+                            + username + ", request traced from " + request.getRemoteAddr()
+                    );
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Password Incorrect!");
                 }
             } catch(Exception e) {
                 NectarServerApplication.getLogger().warn("Failed to find password string for \"" + username + "\" in database.");
                 NectarServerApplication.getLogger().warn("Is the database corrupted?");
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find auth string in database.");
+
+                NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.WARNING, "Failed to find password string, database might be corrupt.");
+
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find password string in database.");
             }
         }
 
         // Check if we have issued a token already for the client.
         if(this.mgmtSessions.containsKey(request.getRemoteAddr())) {
             // Token has been issued
+            NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.WARNING, "Attempted management login from already logged in address " + request.getRemoteAddr());
+
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Another management session from this IP address is currently logged in!");
         }
 
@@ -281,6 +295,7 @@ public class SessionController {
                 .compact(); // Sign and build the JWT
 
         NectarServerApplication.getLogger().info("Issued token for new MANAGEMENT client user \"" + username + "\" at " + request.getRemoteAddr());
+        NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.NOTICE, "Login to management panel from: " + username + ", traced from " + request.getRemoteAddr());
 
         return ResponseEntity.ok(jwt); // Return the token
     }
@@ -302,6 +317,7 @@ public class SessionController {
         }
 
         NectarServerApplication.getLogger().info("MANAGEMENT session logged out from " + request.getRemoteAddr());
+        NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.NOTICE, "Management panel logout from " + request.getRemoteAddr());
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }

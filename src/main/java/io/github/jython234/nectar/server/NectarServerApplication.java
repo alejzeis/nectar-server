@@ -47,6 +47,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -74,11 +75,13 @@ public class NectarServerApplication {
     @Getter private static MongoDatabase db;
 
     @Getter private static Logger logger;
+    @Getter private static EventLog eventLog;
     @Getter private static String configDir;
     @Getter private static NectarServerConfiguration configuration;
 
     public static void main(String[] args) {
         logger = LoggerFactory.getLogger("Nectar");
+        eventLog = new EventLog();
 
         try {
             System.out.println(Util.getResourceContents("header.txt"));
@@ -90,6 +93,8 @@ public class NectarServerApplication {
                 + API_VERSION_MAJOR + "-" + API_VERSION_MINOR);
 
         logger.info("Server ID is " + serverID);
+
+        eventLog.addEntry(EventLog.EntryLevel.INFO, "Starting server.");
 
         try {
             logger.info("Loading configuration...");
@@ -117,6 +122,8 @@ public class NectarServerApplication {
         FTSController.buildChecksumIndex();
 
         logger.info("Done!");
+
+        eventLog.addEntry(EventLog.EntryLevel.INFO, "Server initial startup complete.");
 
         logger.info("Starting SpringApplication...");
 

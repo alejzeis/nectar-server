@@ -28,6 +28,7 @@
  */
 package io.github.jython234.nectar.server.controller;
 
+import io.github.jython234.nectar.server.EventLog;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
 import org.json.simple.JSONObject;
@@ -62,7 +63,7 @@ public class DeployController {
         if(r != null)
             return r;
 
-        NectarServerApplication.getLogger().info("Processing deployment join from " + request.getRemoteAddr() + " ...");
+        NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.INFO, "Processing deployment join from " + request.getRemoteAddr() + " ...");
 
         // Extract deploymentHash from token
         JSONParser parser = new JSONParser();
@@ -70,13 +71,15 @@ public class DeployController {
         try {
             obj = (JSONObject) parser.parse(Util.getJWTPayload(jwtRaw));
         } catch (ParseException e) {
-            NectarServerApplication.getLogger().warn("Deployment join failed from " + request.getRemoteAddr() + " (parse failed).");
+            NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.WARNING, "Deployment join failed from " + request.getRemoteAddr() + " (parse failed).");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to get payload from JWT.");
         }
         String deploymentHash = (String) obj.get("hash");
 
         if(!deploymentHash.equals(NectarServerApplication.getDeploymentHash())) {
             NectarServerApplication.getLogger().warn("Deployment hash mismatch from " + request.getRemoteAddr());
+            NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.WARNING, "Deployment join failed from " + request.getRemoteAddr() + ", hash mismatch.");
+
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Deployment Hash mismatch!");
         }
 

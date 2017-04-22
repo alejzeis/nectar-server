@@ -31,6 +31,7 @@ package io.github.jython234.nectar.server.controller;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import io.github.jython234.nectar.server.EventLog;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
 import io.github.jython234.nectar.server.struct.ManagementSessionToken;
@@ -102,6 +103,7 @@ public class AuthController {
                     throw new RuntimeException(); // Move to catch block
                 }
 
+                NectarServerApplication.getLogger().warn("Attempted duplicate user login to already logged in client: " + token.getUuid());
                 return ResponseEntity.status(HttpStatus.CONFLICT).body("A User is already logged in under this client!");
             } catch(Exception e) {
                 // No user is logged in
@@ -111,6 +113,9 @@ public class AuthController {
                     NectarServerApplication.getLogger().warn("Attempted user login for \"" + username + "\", from "
                             + token.getUuid() + ", user not found in database."
                     );
+
+                    NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.WARNING, "Attempted user login from non-existent user " + username);
+
                     return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found in database!");
                 }
 
@@ -120,9 +125,10 @@ public class AuthController {
                     clients.updateOne(Filters.eq("uuid", token.getUuid()),
                             new Document("$set", new Document("loggedInUser", username))
                     );
-                    NectarServerApplication.getLogger().info("User \"" + username + "\" logged in from " + token.getUuid());
+                    NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.INFO, "User \"" + username + "\" logged in from " + token.getUuid() + ", traced from " + request.getRemoteAddr());
                 } else {
-                    NectarServerApplication.getLogger().warn("ATTEMPTED LOGIN TO USER \"" + username + "\": incorrect password from " + token.getUuid());
+                    NectarServerApplication.getLogger().warn("ATTEMPTED LOGIN TO USER \"" + username + "\": incorrect password from " + token.getUuid() +", address: " + request.getRemoteAddr());
+                    NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.WARNING, "Failed login to user " + username + " from " + token.getUuid() + ", traced from " + request.getRemoteAddr());
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Password Incorrect!");
                 }
             }
@@ -169,7 +175,7 @@ public class AuthController {
             clients.updateOne(Filters.eq("uuid", token.getUuid()),
                     new Document("$set", new Document("loggedInUser", "none"))
             );
-            NectarServerApplication.getLogger().info("User \"" + loggedInUser + "\" logged out from " + token.getUuid());
+            NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.INFO, "User \"" + loggedInUser + "\" logged out from " + token.getUuid() + ", traced from " + request.getRemoteAddr());
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }
@@ -235,7 +241,7 @@ public class AuthController {
                 NectarServerApplication.getLogger().warn("Failed to create FTS store for new user \"" + username + "\" (mkdir failed)!");
             }
 
-            NectarServerApplication.getLogger().info("Registered new user \"" + username + "\", admin: " + admin + ", by MANAGEMENT SESSION: " + token.getClientIP());
+            NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.INFO, "Registered new user \"" + username + "\", admin: " + admin + ", by MANAGEMENT SESSION: " + token.getClientIP());
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }
@@ -280,9 +286,10 @@ public class AuthController {
                 FileUtils.deleteDirectory(storeLocation);
             } catch (IOException e) {
                 NectarServerApplication.getLogger().warn("Failed to delete FTS store for former user \"" + username + "\"");
+                NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.WARNING, "Failed to delete FTS store while deleting user " + username);
             }
 
-            NectarServerApplication.getLogger().info("Removed user \"" + username + "\" by MANAGEMENT SESSION: " + token.getClientIP());
+            NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.INFO, "Removed user \"" + username + "\" by MANAGEMENT SESSION: " + token.getClientIP());
         } else {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
         }
@@ -310,6 +317,8 @@ public class AuthController {
                 NectarServerApplication.getLogger().warn("ATTEMPTED CLIENT REGISTRATION BY NON_ADMIN USER \"" + loggedInUser + "\""
                         + " from session " + token.getUuid()
                 );
+
+                NectarServerApplication.getEventLog().addEntry(EventLog.EntryLevel.WARNING, "A non-admin user attempted to register a client from " + token.getUuid());
                 throw new RuntimeException(); // Move to catch block
             }
             // User is confirmed logged in and admin, all checks passed.
@@ -343,7 +352,7 @@ public class AuthController {
                 .append("registeredBy", ip);
         clients.insertOne(clientDoc);
 
-        NectarServerApplication.getLogger().info("Registered new client \"" + uuid + "\"");
+        NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.INFO, "Client registration success from " + ip + ", new client was registered: " + uuid);
 
         JSONObject root = new JSONObject();
         root.put("uuid", uuid);
