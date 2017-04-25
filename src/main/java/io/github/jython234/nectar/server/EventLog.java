@@ -2,6 +2,8 @@ package io.github.jython234.nectar.server;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -15,6 +17,11 @@ import java.util.List;
  */
 public class EventLog {
     @Getter private final List<Entry> entries = new ArrayList<>();
+    @Getter private final Logger eventLogLogger;
+
+    public EventLog() {
+        this.eventLogLogger = LoggerFactory.getLogger("Nectar-EventLog");
+    }
 
     public void addEntry(Entry entry) {
         synchronized (entries) {
@@ -31,19 +38,19 @@ public class EventLog {
     public void logEntry(EntryLevel level, String message) {
         switch (level) {
             case DEBUG:
-                NectarServerApplication.getLogger().debug("!|! " + message);
+                this.eventLogLogger.debug("!|! " + message);
                 break;
             case INFO:
-                NectarServerApplication.getLogger().info("!|! " + message);
+                this.eventLogLogger.info("!|! " + message);
                 break;
             case NOTICE:
-                NectarServerApplication.getLogger().info("!|! (NOTICE): " + message);
+                this.eventLogLogger.info("!|! (NOTICE): " + message);
                 break;
             case WARNING:
-                NectarServerApplication.getLogger().warn("!|! " + message);
+                this.eventLogLogger.warn("!|! " + message);
                 break;
             case ERROR:
-                NectarServerApplication.getLogger().error("!|! " + message);
+                this.eventLogLogger.error("!|! " + message);
                 break;
         }
 
