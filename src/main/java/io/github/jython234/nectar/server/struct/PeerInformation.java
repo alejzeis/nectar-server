@@ -28,8 +28,10 @@
  */
 package io.github.jython234.nectar.server.struct;
 
+import com.mongodb.util.JSON;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.json.simple.JSONObject;
 
 /**
  * JSON object that holds the server's information.
@@ -45,6 +47,31 @@ public class PeerInformation {
     @Getter private final String serverID;
     @Getter private final SystemInfo systemInfo;
 
+    public static PeerInformation parseFromJSON(JSONObject obj) {
+        return new PeerInformation(
+                (String) obj.get("software"),
+                (String) obj.get("softwareVersion"),
+                ((Long) obj.get("apiVersionMajor")).intValue(),
+                ((Long) obj.get("apiVersionMinor")).intValue(),
+                (String) obj.get("serverID"),
+                SystemInfo.parseFromJSON((JSONObject) obj.get("systemInfo"))
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    public JSONObject toJSON() {
+        JSONObject obj = new JSONObject();
+
+        obj.put("software", software);
+        obj.put("softwareVersion", softwareVersion);
+        obj.put("apiVersionMajor", apiVersionMajor);
+        obj.put("apiVersionMinor", apiVersionMinor);
+        obj.put("serverID", serverID);
+        obj.put("systemInfo", systemInfo.toJSON());
+
+        return obj;
+    }
+
     @RequiredArgsConstructor
     public static class SystemInfo {
         @Getter private final String runtime;
@@ -53,5 +80,30 @@ public class PeerInformation {
         @Getter private final String osVersion;
         @Getter private final String cpu;
         @Getter private final int cpus;
+
+        public static SystemInfo parseFromJSON(JSONObject obj) {
+            return new SystemInfo(
+                    (String) obj.get("runtime"),
+                    (String) obj.get("arch"),
+                    (String) obj.get("os"),
+                    (String) obj.get("osVersion"),
+                    (String) obj.get("cpu"),
+                    ((Long) obj.get("cpus")).intValue()
+            );
+        }
+
+        @SuppressWarnings("unchecked")
+        public JSONObject toJSON() {
+            JSONObject obj = new JSONObject();
+
+            obj.put("runtime", runtime);
+            obj.put("arch", arch);
+            obj.put("os", os);
+            obj.put("osVerison", osVersion);
+            obj.put("cpu", cpu);
+            obj.put("cpus", cpus);
+
+            return obj;
+        }
     }
 }

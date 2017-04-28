@@ -30,8 +30,9 @@ package io.github.jython234.nectar.server;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
-import io.github.jython234.nectar.server.controller.SessionController;
+import com.mongodb.util.JSON;
 import io.github.jython234.nectar.server.struct.ClientState;
+import io.github.jython234.nectar.server.struct.PeerInformation;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import io.github.jython234.nectar.server.struct.operation.ClientOperation;
 import io.github.jython234.nectar.server.struct.operation.OperationStatus;
@@ -39,7 +40,9 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import lombok.Getter;
 import lombok.Setter;
+import org.bson.BSON;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -69,6 +72,8 @@ public class ClientSession {
     @Getter private int updates = -1;
     @Getter private int securityUpdates = -1;
 
+    @Getter private PeerInformation peerInfo;
+
     public ClientSession(SessionToken token) {
         this.token = token;
 
@@ -78,6 +83,7 @@ public class ClientSession {
         this.lastPing = System.currentTimeMillis();
     }
 
+    @SuppressWarnings("unchecked")
     public String constructOperationQueueJWT() {
         JSONObject root = new JSONObject();
         JSONArray array;
@@ -135,6 +141,11 @@ public class ClientSession {
 
         this.updates = ((Long) obj.get("updates")).intValue();
         this.securityUpdates = ((Long) obj.get("securityUpdates")).intValue();
+        this.peerInfo = PeerInformation.parseFromJSON((JSONObject) obj.get("peerInfo"));
+
+        MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+        clients.updateOne(Filters.eq("uuid", token.getUuid()),
+                new Document("$set", new Document("peerInfo", JSON.parse(this.peerInfo.toJSON().toJSONString()))));
 
         return true;
     }
