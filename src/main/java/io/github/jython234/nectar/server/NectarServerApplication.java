@@ -47,6 +47,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -62,7 +64,7 @@ public class NectarServerApplication {
     public static final String SOFTWARE_VERSION = "0.4.1-SNAPSHOT";
 
     public static final int API_VERSION_MAJOR = 4;
-    public static final int API_VERSION_MINOR = 1;
+    public static final int API_VERSION_MINOR = 2;
     public static final String ROOT_PATH_REAL = "/nectar/api/";
     public static final String ROOT_PATH = ROOT_PATH_REAL + "v/" + API_VERSION_MAJOR + "/" + API_VERSION_MINOR;
 
@@ -215,21 +217,26 @@ public class NectarServerApplication {
     }
 
     private static PeerInformation generateServerInfo() {
-        return new PeerInformation(
-                SOFTWARE,
-                SOFTWARE_VERSION,
-                API_VERSION_MAJOR,
-                API_VERSION_MINOR,
-                serverID,
-                new PeerInformation.SystemInfo(
-                        System.getProperty("java.version"),
-                        System.getProperty("os.arch"),
-                        System.getProperty("os.name"),
-                        System.getProperty("os.version"),
-                        "unknown", // TODO: Parse /proc/cpuinfo
-                        Runtime.getRuntime().availableProcessors()
-                )
-        );
+        try {
+            return new PeerInformation(
+                    SOFTWARE,
+                    SOFTWARE_VERSION,
+                    API_VERSION_MAJOR,
+                    API_VERSION_MINOR,
+                    serverID,
+                    InetAddress.getLocalHost().getHostName(),
+                    new PeerInformation.SystemInfo(
+                            System.getProperty("java.version"),
+                            System.getProperty("os.arch"),
+                            System.getProperty("os.name"),
+                            System.getProperty("os.version"),
+                            "unknown", // TODO: Parse /proc/cpuinfo
+                            Runtime.getRuntime().availableProcessors()
+                    )
+            );
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

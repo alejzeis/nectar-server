@@ -147,6 +147,10 @@ public class ClientSession {
         clients.updateOne(Filters.eq("uuid", token.getUuid()),
                 new Document("$set", new Document("peerInfo", JSON.parse(this.peerInfo.toJSON().toJSONString()))));
 
+        clients.updateOne(Filters.eq("uuid", token.getUuid()),
+                new Document("$set", new Document("hostname", this.peerInfo.getHostname()))
+                );
+
         return true;
     }
 }

@@ -4,13 +4,17 @@ import com.mongodb.Block;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.Filters;
+import com.mongodb.util.JSON;
 import io.github.jython234.nectar.server.ClientSession;
+import io.github.jython234.nectar.server.EventLog;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
 import io.github.jython234.nectar.server.struct.ClientState;
 import io.github.jython234.nectar.server.struct.ManagementSessionToken;
+import io.github.jython234.nectar.server.struct.PeerInformation;
 import org.bson.Document;
 import org.json.simple.JSONObject;
+import org.json.simple.parser.ParseException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -101,11 +105,21 @@ public class QueryController {
 
             JSONObject clientJSON = new JSONObject();
             clientJSON.put("state", state.toInt());
+            clientJSON.put("hostname", document.getOrDefault("hostname", "!UNKNOWN"));
+
+            try {
+                if(document.get("peerInfo") != null)
+                    clientJSON.put("peerInfo", PeerInformation.parseFromJSON(JSON.serialize(document.get("peerInfo"))));
+            } catch (ParseException e) {
+                NectarServerApplication.getLogger().warn("ParseException while attempting to retrieve peerInfo from database for client " + document.getString("uuid"));
+            }
 
             if(SessionController.getInstance().sessions.containsKey(uuid)) {
                 // Check if this client is currently online, so we can get update count
                 // And operation information
                 ClientSession session = SessionController.getInstance().sessions.get(uuid);
+
+                clientJSON.put("peerInfo", session.getPeerInfo().toJSON());
 
                 clientJSON.put("updates", session.getUpdates());
                 clientJSON.put("securityUpdates", session.getSecurityUpdates());

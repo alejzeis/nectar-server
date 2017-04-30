@@ -28,10 +28,11 @@
  */
 package io.github.jython234.nectar.server.struct;
 
-import com.mongodb.util.JSON;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 /**
  * JSON object that holds the server's information.
@@ -45,6 +46,7 @@ public class PeerInformation {
     @Getter private final int apiVersionMajor;
     @Getter private final int apiVersionMinor;
     @Getter private final String serverID;
+    @Getter private final String hostname;
     @Getter private final SystemInfo systemInfo;
 
     public static PeerInformation parseFromJSON(JSONObject obj) {
@@ -54,8 +56,14 @@ public class PeerInformation {
                 ((Long) obj.get("apiVersionMajor")).intValue(),
                 ((Long) obj.get("apiVersionMinor")).intValue(),
                 (String) obj.get("serverID"),
+                (String) obj.getOrDefault("hostname", "!UNKNOWN"),
                 SystemInfo.parseFromJSON((JSONObject) obj.get("systemInfo"))
         );
+    }
+
+    public static PeerInformation parseFromJSON(String json) throws ParseException {
+        JSONParser parser = new JSONParser();
+        return PeerInformation.parseFromJSON((JSONObject) parser.parse(json));
     }
 
     @SuppressWarnings("unchecked")
@@ -67,6 +75,7 @@ public class PeerInformation {
         obj.put("apiVersionMajor", apiVersionMajor);
         obj.put("apiVersionMinor", apiVersionMinor);
         obj.put("serverID", serverID);
+        obj.put("hostname", hostname);
         obj.put("systemInfo", systemInfo.toJSON());
 
         return obj;
