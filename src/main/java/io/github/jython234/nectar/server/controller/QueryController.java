@@ -15,6 +15,7 @@ import io.github.jython234.nectar.server.struct.PeerInformation;
 import org.bson.Document;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
+import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,6 +62,7 @@ public class QueryController {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public ResponseEntity queryClientUpdateCount(@RequestParam(value = "token") String jwtRaw,
                                                  @RequestParam(value = "uuid") String uuid) {
 
@@ -109,7 +111,7 @@ public class QueryController {
 
             try {
                 if(document.get("peerInfo") != null)
-                    clientJSON.put("peerInfo", PeerInformation.parseFromJSON(JSON.serialize(document.get("peerInfo"))));
+                    clientJSON.put("peerInfo", PeerInformation.parseFromJSON(JSON.serialize(document.get("peerInfo"))).toJSON());
             } catch (ParseException e) {
                 NectarServerApplication.getLogger().warn("ParseException while attempting to retrieve peerInfo from database for client " + document.getString("uuid"));
             }
@@ -119,7 +121,7 @@ public class QueryController {
                 // And operation information
                 ClientSession session = SessionController.getInstance().sessions.get(uuid);
 
-                clientJSON.put("peerInfo", session.getPeerInfo().toJSON());
+                clientJSON.put("signedInUser", document.getOrDefault("username", "null"));
 
                 clientJSON.put("updates", session.getUpdates());
                 clientJSON.put("securityUpdates", session.getSecurityUpdates());

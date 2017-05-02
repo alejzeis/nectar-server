@@ -59,6 +59,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.security.MessageDigest;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -223,7 +224,11 @@ public class AuthController {
             if(users.find(Filters.eq("username", username)).first() != null)
                 return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists!");
 
-            // TODO: RUN USERNAME AND PASSWORD REGEX CHECKS!
+            // TODO: RUN MORE USERNAME AND PASSWORD REGEX CHECKS!
+            if(username.equals("null")) {
+                NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.NOTICE, "Failed user registration from " + request.getRemoteAddr() + ": invalid username \"null\"");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("\"null\" is an invalid username.");
+            }
 
             users.insertOne(new Document()
                     .append("username", username)
