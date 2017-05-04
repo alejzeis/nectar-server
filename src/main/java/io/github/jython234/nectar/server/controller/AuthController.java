@@ -302,6 +302,45 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }
 
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/auth/removeClient")
+    public ResponseEntity removeClient(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "uuid") String uuid,
+                                       HttpServletRequest request) {
+        ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+        if(r != null)
+            return r;
+
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
+
+        if(SessionController.getInstance().checkManagementToken(token)) {
+            MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+
+            Document client = clients.find(Filters.eq("uuid", uuid)).first();
+
+            if(client == null) // Check if the client exists
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Client not found in database.");
+
+            if(!(client.getOrDefault("loggedInUser", "null").equals("null"))) { // Check if a user is currently signed into the client.
+                NectarServerApplication.getLogger().warn("Attempted client deletion from " + request.getRemoteAddr() + ", a user is already signed into client " + uuid);
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("A user is currently signed into this client.");
+            }
+
+            if(SessionController.getInstance().sessions.containsKey(uuid)) { // Check if the client is currently online with a session open
+                SessionController.getInstance().sessions.remove(uuid); // Remove the session and it's token
+                NectarServerApplication.getLogger().info("Revoked token for " + uuid + ": client deleted");
+            }
+
+            clients.deleteOne(Filters.eq("uuid", uuid)); // Delete client from the MongoDB database
+
+            NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.NOTICE, "Deleted client " + uuid + ", traced from " + request.getRemoteAddr());
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
+
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
+    }
+
     protected static ResponseEntity checkUserAdmin(SessionToken token, MongoCollection<Document> users, Document doc) {
         // getString will throw an exception if the key is not present in the document
         String loggedInUser = doc.getString("loggedInUser");

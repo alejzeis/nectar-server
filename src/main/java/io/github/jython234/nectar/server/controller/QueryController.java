@@ -121,7 +121,7 @@ public class QueryController {
                 // And operation information
                 ClientSession session = SessionController.getInstance().sessions.get(uuid);
 
-                clientJSON.put("signedInUser", document.getOrDefault("username", "null"));
+                clientJSON.put("signedInUser", document.getOrDefault("loggedInUser", "null"));
 
                 clientJSON.put("updates", session.getUpdates());
                 clientJSON.put("securityUpdates", session.getSecurityUpdates());

@@ -61,10 +61,10 @@ import java.util.UUID;
 @EnableScheduling
 public class NectarServerApplication {
     public static final String SOFTWARE = "Nectar-Server";
-    public static final String SOFTWARE_VERSION = "0.4.3-SNAPSHOT";
+    public static final String SOFTWARE_VERSION = "0.4.4-SNAPSHOT";
 
     public static final int API_VERSION_MAJOR = 4;
-    public static final int API_VERSION_MINOR = 3;
+    public static final int API_VERSION_MINOR = 4;
     public static final String ROOT_PATH_REAL = "/nectar/api/";
     public static final String ROOT_PATH = ROOT_PATH_REAL + "v/" + API_VERSION_MAJOR + "/" + API_VERSION_MINOR;
 

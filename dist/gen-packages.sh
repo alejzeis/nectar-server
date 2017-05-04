@@ -1,6 +1,6 @@
 #!/bin/sh
 
-NECTAR_SERVER_JAR=Nectar-Server-0.4.3-SNAPSHOT.jar
+NECTAR_SERVER_JAR=Nectar-Server-0.4.4-SNAPSHOT.jar
 BUILD_NUMBER=0
 
 if [ $# == 0 ]; then
