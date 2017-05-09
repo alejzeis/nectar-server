@@ -22,6 +22,31 @@ public enum OperationID {
         this.id = id;
     }
 
+    public static OperationID fromInt(int id) {
+        switch(id) {
+            case 0:
+                return OPERATION_DO_UPDATE;
+            case 1:
+                return OPERATION_INSTALL_PACKAGE;
+            case 2:
+                return OPERATION_UPDATE_CLIENT_EXECUTABLE;
+            case 20:
+                return OPERATION_SET_TIMEZONE;
+            case 21:
+                return OPERATION_SET_HOSTNAME;
+            case 30:
+                return OPERATION_DEPLOY_SCRIPT;
+            case 40:
+                return OPERATION_DO_SHUTDOWN;
+            case 41:
+                return OPERATION_DO_REBOOT;
+            case 50:
+                return OPERATION_BROADCAST_MESSAGE;
+            default:
+                throw new IllegalArgumentException("Unknown Operation ID!");
+        }
+    }
+
     public int toInt() {
         return this.id;
     }

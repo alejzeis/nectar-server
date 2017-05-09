@@ -66,6 +66,7 @@ public class ClientSession {
 
     @Getter @Setter private OperationStatus processingStatus;
     @Getter @Setter private int processingNumber = -1;
+    @Getter @Setter private int nextOperationId = 0;
     @Getter @Setter private String processingMessage = "IDLE";
     @Getter private Queue<ClientOperation> operationQueue = new ConcurrentLinkedQueue<>();
 
