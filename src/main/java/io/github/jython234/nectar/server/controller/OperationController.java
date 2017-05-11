@@ -138,6 +138,7 @@ public class OperationController {
                 session.getOperationQueue().add(
                         new ClientOperation(session.getNextOperationId(), opId, additionalData)
                 );
+                session.setNextOperationId(session.getNextOperationId() + 1);
             }
 
             NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.INFO, "Added operation " + opId.name() + " to queue for " + targetsArray.size() + " client(s), traced from " + request.getRemoteAddr());
