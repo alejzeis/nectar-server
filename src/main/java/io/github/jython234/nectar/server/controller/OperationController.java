@@ -4,6 +4,7 @@ import io.github.jython234.nectar.server.ClientSession;
 import io.github.jython234.nectar.server.EventLog;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
+import io.github.jython234.nectar.server.struct.ManagementSessionToken;
 import io.github.jython234.nectar.server.struct.SessionToken;
 import io.github.jython234.nectar.server.struct.operation.ClientOperation;
 import io.github.jython234.nectar.server.struct.operation.OperationID;
@@ -95,11 +96,11 @@ public class OperationController {
         if(r != null)
             return r;
 
-        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
         if(token == null)
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
-        if(SessionController.getInstance().checkToken(token)) { // Check if the token has expired
+        if(SessionController.getInstance().checkManagementToken(token)) { // Check if the token has expired
             String decoded = new String(Base64.getUrlDecoder().decode(operationDataRaw));
             JSONParser parser = new JSONParser();
 
@@ -111,7 +112,7 @@ public class OperationController {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to parse status JSON.");
             }
 
-            int id = ((Long) obj.get("operationNumber")).intValue();
+            int id = ((Long) obj.get("id")).intValue();
 
             OperationID opId;
             try {
@@ -125,7 +126,7 @@ public class OperationController {
             JSONObject additionalData = (JSONObject) obj.getOrDefault("additionalData", new JSONObject());
 
             if(targetsArray.isEmpty())
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Empty targets array.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("No targets were provided (perhaps they are all offline?)");
 
             for(Object target : targetsArray) {
                 String uuid = (String) target;
