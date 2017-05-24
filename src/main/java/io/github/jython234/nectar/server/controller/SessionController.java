@@ -188,11 +188,11 @@ public class SessionController {
         if(doc == null) {
             // We can't find this client in the database
             // This means that the client is unregistered, so we drop the request
-            NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.WARNING,
+            NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.DEBUG,
                     "Received token request from unregistered client "
                     + request.getRemoteAddr() + " with UUID: " + uuid
             );
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("UUID not found in database.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("UUID not found in database.");
         } else {
             try {
                 String auth = doc.getString("auth");
