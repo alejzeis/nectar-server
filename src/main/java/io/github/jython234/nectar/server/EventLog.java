@@ -6,8 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 /**
  * Represents the server's internal event log that records
@@ -16,7 +16,7 @@ import java.util.List;
  * @author jython234
  */
 public class EventLog {
-    @Getter private final List<Entry> entries = new ArrayList<>();
+    @Getter private final Deque<Entry> entries = new ArrayDeque<>();
     @Getter private final Logger eventLogLogger;
 
     public EventLog() {
@@ -25,13 +25,13 @@ public class EventLog {
 
     public void addEntry(Entry entry) {
         synchronized (entries) {
-            this.entries.add(entry);
+            this.entries.addLast(entry);
         }
     }
 
     public void addEntry(EntryLevel level, String message) {
         synchronized (entries) {
-            this.entries.add(new Entry(LocalDateTime.now(), level, message));
+            this.entries.addLast(new Entry(LocalDateTime.now(), level, message));
         }
     }
 

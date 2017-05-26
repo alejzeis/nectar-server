@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.Iterator;
 
 /**
  * REST controller which handles queries for various
@@ -169,5 +170,36 @@ public class QueryController {
         });
 
         return ResponseEntity.ok(returnJSON.toJSONString());
+    }
+
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/query/queryEventLog")
+    public ResponseEntity queryEventLog(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "entryCount") int entryCount,
+                                        HttpServletRequest request) {
+        /*ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
+
+        if(!SessionController.getInstance().checkManagementToken(token)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }*/
+
+        StringBuilder sb = new StringBuilder();
+
+        synchronized (NectarServerApplication.getEventLog().getEntries()) {
+            Iterator<EventLog.Entry> entryIterator = NectarServerApplication.getEventLog().getEntries().iterator();
+            for(int i = 0; i < entryCount; i++) { // Only add logs until we reach the amount specified
+                if(!entryIterator.hasNext()) break; // Check if there are no more entries
+                EventLog.Entry e = entryIterator.next();
+
+                sb.append(e.getDatetime().toString())
+                        .append(" [")
+                        .append(e.getLevel().name())
+                        .append("]: ")
+                        .append(e.getMessage())
+                        .append("\r\n");
+            }
+        }
+
+        return ResponseEntity.ok(sb.toString());
     }
 }
