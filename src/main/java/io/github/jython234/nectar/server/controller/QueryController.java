@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
+import java.time.ZoneId;
 import java.util.Iterator;
 
 /**
@@ -175,13 +176,13 @@ public class QueryController {
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/query/queryEventLog")
     public ResponseEntity queryEventLog(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "entryCount") int entryCount,
                                         HttpServletRequest request) {
-        /*ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
         if(token == null)
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
         if(!SessionController.getInstance().checkManagementToken(token)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
-        }*/
+        }
 
         StringBuilder sb = new StringBuilder();
 
@@ -198,6 +199,36 @@ public class QueryController {
                         .append(e.getMessage())
                         .append("\r\n");
             }
+        }
+
+        return ResponseEntity.ok(sb.toString());
+    }
+
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/query/queryEventLogSince")
+    public ResponseEntity queryEventLogSince(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "timestamp") long timestamp,
+                                             HttpServletRequest request) {
+        ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
+
+        if(!SessionController.getInstance().checkManagementToken(token)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        synchronized (NectarServerApplication.getEventLog().getEntries()) {
+            NectarServerApplication.getEventLog().getEntries().iterator().forEachRemaining((EventLog.Entry e) -> {
+                long epochTimestamp = e.getDatetime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                if(epochTimestamp >= timestamp) { // It's after the timestamp we were provided with, so add it
+                    sb.append(e.getDatetime().toString())
+                            .append(" [")
+                            .append(e.getLevel().name())
+                            .append("]: ")
+                            .append(e.getMessage())
+                            .append("\r\n");
+                }
+            });
         }
 
         return ResponseEntity.ok(sb.toString());

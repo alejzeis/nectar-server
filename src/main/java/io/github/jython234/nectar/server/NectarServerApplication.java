@@ -64,7 +64,7 @@ public class NectarServerApplication {
     public static final String SOFTWARE_VERSION = "0.4.5-SNAPSHOT";
 
     public static final int API_VERSION_MAJOR = 4;
-    public static final int API_VERSION_MINOR = 6;
+    public static final int API_VERSION_MINOR = 7;
     public static final String ROOT_PATH_REAL = "/nectar/api/";
     public static final String ROOT_PATH = ROOT_PATH_REAL + "v/" + API_VERSION_MAJOR + "/" + API_VERSION_MINOR;
 
