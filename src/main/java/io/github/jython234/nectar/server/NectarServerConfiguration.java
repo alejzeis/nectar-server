@@ -51,6 +51,9 @@ import java.security.spec.X509EncodedKeySpec;
 public class NectarServerConfiguration {
     private static NectarServerConfiguration INSTANCE;
 
+    // Server Section ------------------------------------------
+    @Getter private final int maxEntryLogSize;
+
     // Network Section -----------------------------------------
     @Getter private final int bindPort;
 
@@ -77,6 +80,8 @@ public class NectarServerConfiguration {
     @Getter private final long spaceThreshold;
 
     NectarServerConfiguration(Ini config) {
+        this.maxEntryLogSize = Integer.parseInt(config.get("server").get("maxEntryLogSize"));
+
         this.bindPort = Integer.parseInt(config.get("network").get("bindPort"));
 
         this.dbIP = config.get("db").get("ip");

@@ -16,23 +16,28 @@ import java.util.Deque;
  * @author jython234
  */
 public class EventLog {
+    @Getter private final int maxEntryCount;
+
     @Getter private final Deque<Entry> entries = new ArrayDeque<>();
     @Getter private final Logger eventLogLogger;
 
-    public EventLog() {
+    public EventLog(int maxEntryCount) {
+        this.maxEntryCount = maxEntryCount;
         this.eventLogLogger = LoggerFactory.getLogger("Nectar-EventLog");
     }
 
     public void addEntry(Entry entry) {
         synchronized (entries) {
-            this.entries.addLast(entry);
+            if(entries.size() >= maxEntryCount) { // If we reach the max size, remove the furthest entry
+                entries.removeFirst();
+            }
+
+            this.entries.addLast(entry); // Add the entry to the end of the Deque
         }
     }
 
     public void addEntry(EntryLevel level, String message) {
-        synchronized (entries) {
-            this.entries.addLast(new Entry(LocalDateTime.now(), level, message));
-        }
+        addEntry(new Entry(LocalDateTime.now(), level, message));
     }
 
     public void logEntry(EntryLevel level, String message) {

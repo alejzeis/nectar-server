@@ -83,7 +83,6 @@ public class NectarServerApplication {
 
     public static void main(String[] args) {
         logger = LoggerFactory.getLogger("Nectar");
-        eventLog = new EventLog();
 
         try {
             System.out.println(Util.getResourceContents("header.txt"));
@@ -96,8 +95,6 @@ public class NectarServerApplication {
 
         logger.info("Server ID is " + serverID);
 
-        eventLog.addEntry(EventLog.EntryLevel.INFO, "Starting server.");
-
         try {
             logger.info("Loading configuration...");
             loadConfig();
@@ -106,6 +103,11 @@ public class NectarServerApplication {
             e.printStackTrace(System.err);
             System.exit(1);
         }
+
+        logger.info("Maximum EntryLog size is " + configuration.getMaxEntryLogSize() + " entries.");
+
+        eventLog = new EventLog(configuration.getMaxEntryLogSize());
+        eventLog.addEntry(EventLog.EntryLevel.INFO, "Loaded configuration.");
 
         try {
             setupDeployment();
