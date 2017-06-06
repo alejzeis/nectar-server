@@ -130,6 +130,7 @@ public class QueryController {
 
                 clientJSON.put("operationCount", session.getOperationQueue().size());
                 clientJSON.put("operationStatus", session.getProcessingStatus().toInt());
+                clientJSON.put("operationMessage", session.getProcessingMessage());
             }
 
             returnJSON.put(uuid, clientJSON);

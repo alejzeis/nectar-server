@@ -103,6 +103,8 @@ public class ClientSession {
     }
 
     public void updateOperationStatus(int operationNumber, OperationStatus opStatus, String message) {
+        NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.DEBUG, "Updated operation status for " + this.getToken().getUuid() + " to " + opStatus.name());
+
         if(opStatus == OperationStatus.IDLE) {
             this.setProcessingNumber(-1);
             this.setProcessingMessage("IDLE");
