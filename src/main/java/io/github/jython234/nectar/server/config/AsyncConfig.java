@@ -21,13 +21,7 @@ public class AsyncConfig implements AsyncConfigurer {
 
     @Override
     public Executor getAsyncExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(Runtime.getRuntime().availableProcessors());
-        executor.setMaxPoolSize(Runtime.getRuntime().availableProcessors() * 2);
-        executor.setQueueCapacity(16);
-        executor.setThreadNamePrefix("AsyncThread-");
-        executor.initialize();
-        return executor;
+        return NectarServerApplication.getThreadPoolTaskExecutor();
     }
 
     @Override

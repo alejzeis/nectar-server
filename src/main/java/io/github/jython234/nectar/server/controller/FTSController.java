@@ -57,6 +57,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
@@ -81,6 +82,15 @@ public class FTSController {
             NectarServerApplication.getLogger().error("FAILED TO COMPUTE FTS CHECKSUMS!");
             System.exit(1);
         }
+
+        // Wait for all the worker threads to finish
+        while(NectarServerApplication.getThreadPoolTaskExecutor().getActiveCount() != 0) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     // TODO: Clean database of entries of deleted files (only because they could be deleted while the server is offline)
@@ -88,44 +98,56 @@ public class FTSController {
         File[] contents = dir.listFiles();
         if(contents == null) return;
 
-        List<Document> toInsert = new ArrayList<>();
+        List<Document> toInsert = new CopyOnWriteArrayList<>();
 
         for(File file : contents) {
             if(file.isDirectory()) {
                 // Recursion: build for all in that directory
                 buildChecksumDir(file, isPublic, index);
             } else {
-                // Is a file, build the checksum then
-                String checksum = Util.computeFileSHA256Checksum(file);
-                Document fileDoc = index.find(Filters.eq("path", file.getAbsolutePath())).first();
-                if(fileDoc == null) {
-                    toInsert.add(new Document()
-                            .append("path", file.getAbsolutePath())
-                            .append("storePath", Util.absoluteFTSToRelativeStore(file.getAbsolutePath()))
-                            .append("isPublic", isPublic)
-                            .append("checksum", checksum)
-                            .append("lastUpdatedBy", "server"));
-                } else {
-                    String dbChecksum = fileDoc.getString("checksum");
-                    if(!checksum.equals(dbChecksum)) {
-                        // Checksum has changed, we assume the file has been changed by the server
-                        // This is because if a client changes it, the database will be updated
-                        index.updateOne(Filters.eq("path", file.getAbsolutePath()),
-                                new Document("$set", new Document("checksum", checksum))
-                                ); // Update the checksum into the database
-
-                        index.updateOne(Filters.eq("path", file.getAbsolutePath()),
-                                new Document("$set", new Document("lastUpdatedBy", "server"))
-                                ); // Change lastUpdatedBy to "server"
+                NectarServerApplication.getThreadPoolTaskExecutor().submit(() -> {
+                    try {
+                        buildChecksumFile(file, index, toInsert, isPublic);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
-                    // else: Checksum has not changed, all is well
-                }
+                });
             }
         }
 
         if(!toInsert.isEmpty()) {
             index.insertMany(toInsert);
         }
+    }
+
+    private static void buildChecksumFile(File file, MongoCollection<Document> index, List<Document> toInsert, boolean isPublic) throws IOException {
+        // Is a file, build the checksum then
+        String checksum = Util.computeFileSHA256Checksum(file);
+        Document fileDoc = index.find(Filters.eq("path", file.getAbsolutePath())).first();
+        if(fileDoc == null) {
+            toInsert.add(new Document()
+                    .append("path", file.getAbsolutePath())
+                    .append("storePath", Util.absoluteFTSToRelativeStore(file.getAbsolutePath()))
+                    .append("isPublic", isPublic)
+                    .append("checksum", checksum)
+                    .append("lastUpdatedBy", "server"));
+        } else {
+            String dbChecksum = fileDoc.getString("checksum");
+            if(!checksum.equals(dbChecksum)) {
+                // Checksum has changed, we assume the file has been changed by the server
+                // This is because if a client changes it, the database will be updated
+                index.updateOne(Filters.eq("path", file.getAbsolutePath()),
+                        new Document("$set", new Document("checksum", checksum))
+                ); // Update the checksum into the database
+
+                index.updateOne(Filters.eq("path", file.getAbsolutePath()),
+                        new Document("$set", new Document("lastUpdatedBy", "server"))
+                ); // Change lastUpdatedBy to "server"
+            }
+            // else: Checksum has not changed, all is well
+        }
+
+        System.out.println("built " + file.getName());
     }
 
     @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/fts/upload", method = RequestMethod.POST)
@@ -200,8 +222,8 @@ public class FTSController {
     public ResponseEntity uploadDelta(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "path") String path
             , @RequestParam(value = "name") String name, @RequestParam(value = "public") boolean isPublic
             , @RequestParam(value = "file") MultipartFile file, HttpServletRequest request) {
-        String loggedInUser = "";
-        /*ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+
+        ResponseEntity r = Util.verifyJWT(jwtRaw, request);
         if(r != null)
             return r;
 
@@ -209,8 +231,8 @@ public class FTSController {
         if(token == null)
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
 
-        if(SessionController.getInstance().checkToken(token)) {*/
-            /*MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+        if(SessionController.getInstance().checkToken(token)) {
+            MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
             MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
             Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
 
@@ -235,11 +257,11 @@ public class FTSController {
 
             if(!checkSpace(file.getSize())) {
                 return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE).body("FTS directory free space low.");
-            }*/
+            }
 
             ResponseEntity res;
             if(isPublic) {
-                /*// Need to be admin to upload to public store
+                // Need to be admin to upload to public store
                 try {
                     ResponseEntity re = AuthController.checkUserAdmin(token, users, doc);
                     // Throws if user is not admin
@@ -247,7 +269,7 @@ public class FTSController {
                         return re;
                 } catch(Exception e) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
-                }*/
+                }
 
                 res = doUploadDelta("publicStore", loggedInUser, name, path, true, file);
                 if(res != null)
@@ -257,9 +279,9 @@ public class FTSController {
                 if(res != null)
                     return res;
             }
-        //} else {
-          //  return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
-        //}
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        }
 
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }

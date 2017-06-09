@@ -43,7 +43,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,6 +61,7 @@ import java.util.UUID;
  */
 @SpringBootApplication
 @EnableScheduling
+@EnableAsync
 public class NectarServerApplication {
     public static final String SOFTWARE = "Nectar-Server";
     public static final String SOFTWARE_VERSION = "0.5.1-SNAPSHOT";
@@ -70,6 +73,8 @@ public class NectarServerApplication {
 
     public static final String serverID = UUID.randomUUID().toString();
     public static final PeerInformation SERVER_INFORMATION = generateServerInfo();
+    
+    @Getter private static ThreadPoolTaskExecutor threadPoolTaskExecutor;
 
     @Getter private static String deploymentHash;
 
@@ -82,6 +87,13 @@ public class NectarServerApplication {
     @Getter private static NectarServerConfiguration configuration;
 
     public static void main(String[] args) {
+        threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
+        threadPoolTaskExecutor.setCorePoolSize(Runtime.getRuntime().availableProcessors());
+        threadPoolTaskExecutor.setMaxPoolSize(Runtime.getRuntime().availableProcessors() * 2);
+        threadPoolTaskExecutor.setQueueCapacity(16);
+        threadPoolTaskExecutor.setThreadNamePrefix("AsyncThread-");
+        threadPoolTaskExecutor.initialize();
+        
         logger = LoggerFactory.getLogger("Nectar");
 
         try {
