@@ -1,6 +1,6 @@
 #!/bin/sh
 
-NECTAR_VERSION=0.4.8
+NECTAR_VERSION=0.5.1
 NECTAR_SERVER_JAR=Nectar-Server-$NECTAR_VERSION-SNAPSHOT.jar
 BUILD_NUMBER=0
 
@@ -11,6 +11,6 @@ else
 fi
 
 # Build Deb
-fpm -s dir -t deb -a all -n nectar-server -v $NECTAR_VERSION --iteration $BUILD_NUMBER --after-install nectar-server-install.sh ../target/$NECTAR_SERVER_JAR=/usr/lib/nectar-server/Nectar-Server.jar nectar-server=/usr/bin/nectar-server nectar-server.service=/usr/lib/systemd/system/nectar-server.service ../genkeys.sh=/etc/nectar-server/genkeys.sh
+fpm -s dir -t deb -a all -d xdelta3 -n nectar-server -v $NECTAR_VERSION --iteration $BUILD_NUMBER --after-install nectar-server-install.sh ../target/$NECTAR_SERVER_JAR=/usr/lib/nectar-server/Nectar-Server.jar nectar-server=/usr/bin/nectar-server nectar-server.service=/usr/lib/systemd/system/nectar-server.service ../genkeys.sh=/etc/nectar-server/genkeys.sh
 # Build RPM
-fpm -s dir -t rpm -a all -n nectar-server -v $NECTAR_VERSION --iteration $BUILD_NUMBER --after-install nectar-server-install.sh ../target/$NECTAR_SERVER_JAR=/usr/lib/nectar-server/Nectar-Server.jar nectar-server=/usr/bin/nectar-server nectar-server.service=/usr/lib/systemd/system/nectar-server.service ../genkeys.sh=/etc/nectar-server/genkeys.sh
+fpm -s dir -t rpm -a all -d xdelta -n nectar-server -v $NECTAR_VERSION --iteration $BUILD_NUMBER --after-install nectar-server-install.sh ../target/$NECTAR_SERVER_JAR=/usr/lib/nectar-server/Nectar-Server.jar nectar-server=/usr/bin/nectar-server nectar-server.service=/usr/lib/systemd/system/nectar-server.service ../genkeys.sh=/etc/nectar-server/genkeys.sh

@@ -124,6 +124,13 @@ public class NectarServerConfiguration {
         File publicStoreDir = new File(this.ftsDirectory + File.separator + "publicStore");
         File usrStoreDir = new File(this.ftsDirectory + File.separator + "usrStore");
 
+        File publicDeltaDir = new File(this.ftsDirectory + File.separator + "publicDeltaCache");
+        File usrDeltaDir = new File(this.ftsDirectory + File.separator + "usrDeltaCache");
+
+        // Clear delta caches
+        publicDeltaDir.delete();
+        usrDeltaDir.delete();
+
         // Create publicStore directory
         if(!publicStoreDir.exists() && !publicStoreDir.mkdir()) {
             NectarServerApplication.getLogger().error("Failed to create FTS publicStore directory! (mkdir failed)");
@@ -133,6 +140,18 @@ public class NectarServerConfiguration {
         // Create usrStore directory
         if(!usrStoreDir.exists() && !usrStoreDir.mkdir()) {
             NectarServerApplication.getLogger().error("Failed to create FTS usrStore directory! (mkdir failed)");
+            System.exit(1);
+        }
+
+        // Create publicDeltaCache directory
+        if(!publicDeltaDir.exists() && !publicDeltaDir.mkdir()) {
+            NectarServerApplication.getLogger().error("Failed to create FTS publicDeltaCache directory! (mkdir failed)");
+            System.exit(1);
+        }
+
+        // Create usrDeltaCache directory
+        if(!usrDeltaDir.exists() && !usrDeltaDir.mkdir()) {
+            NectarServerApplication.getLogger().error("Failed to create FTS usrDeltaCache directory! (mkdir failed)");
             System.exit(1);
         }
 

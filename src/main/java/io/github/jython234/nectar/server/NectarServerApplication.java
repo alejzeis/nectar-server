@@ -61,10 +61,10 @@ import java.util.UUID;
 @EnableScheduling
 public class NectarServerApplication {
     public static final String SOFTWARE = "Nectar-Server";
-    public static final String SOFTWARE_VERSION = "0.4.8-SNAPSHOT";
+    public static final String SOFTWARE_VERSION = "0.5.1-SNAPSHOT";
 
-    public static final int API_VERSION_MAJOR = 4;
-    public static final int API_VERSION_MINOR = 8;
+    public static final int API_VERSION_MAJOR = 5;
+    public static final int API_VERSION_MINOR = 1;
     public static final String ROOT_PATH_REAL = "/nectar/api/";
     public static final String ROOT_PATH = ROOT_PATH_REAL + "v/" + API_VERSION_MAJOR + "/" + API_VERSION_MINOR;
 
@@ -122,10 +122,11 @@ public class NectarServerApplication {
         connectMongo();
 
         logger.info("Building FTS Checksum index (this could take a while!)...");
+        long startTime = System.currentTimeMillis();
 
         FTSController.buildChecksumIndex();
 
-        logger.info("Done!");
+        logger.info("Done! (Finished in " + (System.currentTimeMillis() - startTime) + " msecs)");
 
         eventLog.addEntry(EventLog.EntryLevel.INFO, "Server initial startup complete.");
 

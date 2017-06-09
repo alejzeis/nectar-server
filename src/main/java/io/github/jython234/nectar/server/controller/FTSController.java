@@ -30,6 +30,7 @@ package io.github.jython234.nectar.server.controller;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import io.github.jython234.nectar.server.EventLog;
 import io.github.jython234.nectar.server.NectarServerApplication;
 import io.github.jython234.nectar.server.Util;
 import io.github.jython234.nectar.server.struct.IndexJSON;
@@ -41,6 +42,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -194,6 +196,74 @@ public class FTSController {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
     }
 
+    @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/fts/uploadDelta", method = RequestMethod.POST)
+    public ResponseEntity uploadDelta(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "path") String path
+            , @RequestParam(value = "name") String name, @RequestParam(value = "public") boolean isPublic
+            , @RequestParam(value = "file") MultipartFile file, HttpServletRequest request) {
+        String loggedInUser = "";
+        /*ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+        if(r != null)
+            return r;
+
+        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if(token == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid TOKENTYPE.");
+
+        if(SessionController.getInstance().checkToken(token)) {*/
+            /*MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+            MongoCollection<Document> users = NectarServerApplication.getDb().getCollection("users");
+            Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
+
+            // Check if the user is logged in ----------------------------------------------------------------------------------------
+
+            if(doc == null)
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to find entry in database for client.");
+
+            String loggedInUser;
+            try {
+                // getString will throw an exception if the key is not present in the document
+                loggedInUser = doc.getString("loggedInUser");
+                if (loggedInUser.equals("none")) {
+                    // No user is logged in
+                    throw new RuntimeException(); // Move to catch block
+                }
+            } catch(Exception e) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Must be logged in to use FTS.");
+            }
+
+            // Process Upload ---------------------------------------------------------------------------------------------------------
+
+            if(!checkSpace(file.getSize())) {
+                return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE).body("FTS directory free space low.");
+            }*/
+
+            ResponseEntity res;
+            if(isPublic) {
+                /*// Need to be admin to upload to public store
+                try {
+                    ResponseEntity re = AuthController.checkUserAdmin(token, users, doc);
+                    // Throws if user is not admin
+                    if(re != null)
+                        return re;
+                } catch(Exception e) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User with admin privilege must be logged in on this client.");
+                }*/
+
+                res = doUploadDelta("publicStore", loggedInUser, name, path, true, file);
+                if(res != null)
+                    return res;
+            } else {
+                res = doUploadDelta("usrStore" + File.separator + loggedInUser, loggedInUser, name, path, false, file);
+                if(res != null)
+                    return res;
+            }
+        //} else {
+          //  return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token expired/not valid.");
+        //}
+
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).body("Success.");
+    }
+
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/fts/download")
     public void download(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "public") boolean isPublic
                                     , @RequestParam(value = "path") String path, HttpServletRequest request, HttpServletResponse response) {
@@ -325,7 +395,7 @@ public class FTSController {
     }
 
     private ResponseEntity doUpload(String ftsPath, String loggedInUser, String name, String path, boolean isPublic, MultipartFile file) {
-        File uploadPath = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + ftsPath);
+        File uploadPath = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + ftsPath + File.separator + path);
         MongoCollection<Document> index = NectarServerApplication.getDb().getCollection("ftsIndex");
 
         if (!uploadPath.exists()) {
@@ -383,6 +453,79 @@ public class FTSController {
         }
 
         return null;
+    }
+
+    private ResponseEntity doUploadDelta(String ftsPath, String loggedInUser, String name, String path, boolean isPublic, MultipartFile file) {
+        File uploadPath = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + ftsPath + File.separator + path + File.separator + name);
+
+        // Check if the file we want to apply the delta to exists
+        if(!uploadPath.exists()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(path + " not found, can not apply delta on non-existent file.");
+        }
+
+        // Save the delta to the deltaCache
+        File deltaFile = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + (isPublic ? "publicDeltaCache" : "usrDeltaCache") + File.separator + path + File.separator + name + ".xdiff");
+        try {
+            file.transferTo(deltaFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+            NectarServerApplication.getLogger().error("IOException while processing FTS DELTA upload \"" + path + "\""
+                    + " from user \"" + loggedInUser + "\""
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("IOException while storing file.");
+        }
+
+        // Decode and apply the patch to the original file, overwriting it.
+        ProcessBuilder pb = new ProcessBuilder("xdelta3", "-d", "-f", "-s", uploadPath.getAbsolutePath(), deltaFile.getAbsolutePath(), uploadPath.getAbsolutePath());
+        try {
+            Process process = pb.start();
+            applyDelta(process, loggedInUser, uploadPath, path);
+        } catch (IOException e) {
+            e.printStackTrace();
+            NectarServerApplication.getLogger().error("IOException while starting XDELTA process, processing FTS DELTA upload \"" + path + "\""
+                    + " from user \"" + loggedInUser + "\""
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("IOException while starting XDELTA process");
+        }
+
+        return ResponseEntity.status(HttpStatus.PROCESSING).body("Applying delta...");
+    }
+
+    @Async
+    private void applyDelta(Process process, String loggedInUser, File uploadPath, String path) {
+        try {
+            process.waitFor();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        if(process.exitValue() != 0) {
+            NectarServerApplication.getLogger().error("XDELTA3 exited with non-zero exit code, Upload " + uploadPath + "\""
+                    + " from user \"" + loggedInUser + "\"");
+            return;
+        }
+
+        MongoCollection<Document> index = NectarServerApplication.getDb().getCollection("ftsIndex");
+
+        // Update index with new checksum -----------------------------------------------------------------------------------------------
+        String checksum;
+        try {
+            checksum = Util.computeFileSHA256Checksum(uploadPath);
+
+            Document doc = index.find(Filters.eq("path", uploadPath.getAbsolutePath())).first();
+            index.updateOne(Filters.eq("path", uploadPath.getAbsolutePath()),
+                    new Document("$set", new Document("checksum", checksum))
+            );
+
+            index.updateOne(Filters.eq("path", uploadPath.getAbsolutePath()),
+                    new Document("$set", new Document("lastUpdatedBy", "client"))
+            );
+        } catch (IOException e) {
+            e.printStackTrace();
+            NectarServerApplication.getLogger().error("IOException while calculating FTS checksum! Upload \"" + uploadPath + "\""
+                    + " from user \"" + loggedInUser + "\""
+            );
+        }
     }
 
     @SuppressWarnings("unchecked")
