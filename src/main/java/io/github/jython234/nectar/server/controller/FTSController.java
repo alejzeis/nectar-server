@@ -361,6 +361,85 @@ public class FTSController {
         }
     }
 
+    @RequestMapping(NectarServerApplication.ROOT_PATH + "/fts/downloadDelta")
+    public void downloadDelta(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "public") boolean isPublic
+            , @RequestParam(value = "path") String path, HttpServletRequest request, HttpServletResponse response) {
+        ResponseEntity r = Util.verifyJWT(jwtRaw, request);
+        if (r != null) {
+            response.setStatus(HttpStatus.BAD_REQUEST.value());
+            return;
+        }
+
+        SessionToken token = SessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
+        if (token == null) {
+            response.setStatus(HttpStatus.BAD_REQUEST.value());
+            // INVALID TOKENTYPE
+            return;
+        }
+
+        if(SessionController.getInstance().checkToken(token)) {
+            MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
+            Document doc = clients.find(Filters.eq("uuid", token.getUuid())).first();
+
+            // Check if the user is logged in ----------------------------------------------------------------------------------------
+
+            if(doc == null)
+                response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+
+            if(isPublic) {
+                // You don't need to be logged in to access the public store
+                File ftsPath = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + "publicDeltaCache"
+                        + File.separator + path + ".xdiff");
+
+                if(!ftsPath.exists()) {
+                    // No delta found, redirect to download whole file
+                    response.setStatus(HttpStatus.TEMPORARY_REDIRECT.value());
+                    response.setHeader("Location", NectarServerApplication.ROOT_PATH + "/fts/download?token=" + jwtRaw + "&public=" + Boolean.toString(isPublic) + "&path=" + path);
+                    return;
+                } else if(ftsPath.isDirectory()) {
+                    response.setStatus(HttpStatus.BAD_REQUEST.value());
+                    return;
+                } else {
+                    doDownload(ftsPath, response);
+                    return;
+                }
+            }
+
+            // Client is accessing user store, check for logged in then.
+
+            String loggedInUser;
+            try {
+                // getString will throw an exception if the key is not present in the document
+                loggedInUser = doc.getString("loggedInUser");
+                if (loggedInUser.equals("none")) {
+                    // No user is logged in
+                    throw new RuntimeException(); // Move to catch block
+                }
+            } catch(Exception e) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                return;
+            }
+
+            // User is logged in, now process the download.
+            // A user can't access another's data store because the path is specifically tied to the logged in name
+
+            File ftsPath = new File(NectarServerApplication.getConfiguration().getFtsDirectory() + File.separator + "usrDeltaCache"
+                    + File.separator + loggedInUser + File.separator + path + ".xdiff");
+
+            if(!ftsPath.exists()) {
+                // No delta found, redirect to download whole file
+                response.setStatus(HttpStatus.TEMPORARY_REDIRECT.value());
+                response.setHeader("Location", NectarServerApplication.ROOT_PATH + "/fts/download?token=" + jwtRaw + "&public=" + Boolean.toString(isPublic) + "&path=" + path);
+            } else if(ftsPath.isDirectory()) {
+                response.setStatus(HttpStatus.BAD_REQUEST.value());
+            } else {
+                doDownload(ftsPath, response);
+            }
+        } else {
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/fts/checksumIndex")
     public ResponseEntity checksumIndex(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "public") boolean isPublic,
