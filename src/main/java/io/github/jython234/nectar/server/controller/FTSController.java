@@ -146,8 +146,6 @@ public class FTSController {
             }
             // else: Checksum has not changed, all is well
         }
-
-        System.out.println("built " + file.getName());
     }
 
     @RequestMapping(value = NectarServerApplication.ROOT_PATH + "/fts/upload", method = RequestMethod.POST)

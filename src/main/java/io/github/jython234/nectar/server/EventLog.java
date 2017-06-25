@@ -1,7 +1,9 @@
 package io.github.jython234.nectar.server;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +20,8 @@ import java.util.Deque;
 public class EventLog {
     @Getter private final int maxEntryCount;
 
+    private int nextEntryId = 0;
+
     @Getter private final Deque<Entry> entries = new ArrayDeque<>();
     @Getter private final Logger eventLogLogger;
 
@@ -31,6 +35,8 @@ public class EventLog {
             if(entries.size() >= maxEntryCount) { // If we reach the max size, remove the furthest entry
                 entries.removeFirst();
             }
+
+            entry.setEntryId(nextEntryId++);
 
             this.entries.addLast(entry); // Add the entry to the end of the Deque
         }
@@ -73,6 +79,9 @@ public class EventLog {
         @Getter private final LocalDateTime datetime;
         @Getter private final EntryLevel level;
         @Getter private final String message;
+
+        @Getter @Setter(AccessLevel.PROTECTED)
+        private int entryId;
     }
 
     /**

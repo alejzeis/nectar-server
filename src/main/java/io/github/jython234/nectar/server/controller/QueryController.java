@@ -174,6 +174,7 @@ public class QueryController {
         return ResponseEntity.ok(returnJSON.toJSONString());
     }
 
+    @SuppressWarnings("unchecked")
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/query/queryEventLog")
     public ResponseEntity queryEventLog(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "entryCount") int entryCount,
                                         HttpServletRequest request) {
@@ -187,6 +188,7 @@ public class QueryController {
 
         StringBuilder sb = new StringBuilder();
 
+        int lastEntryId;
         synchronized (NectarServerApplication.getEventLog().getEntries()) {
             Iterator<EventLog.Entry> entryIterator = NectarServerApplication.getEventLog().getEntries().iterator();
             for(int i = 0; i < entryCount; i++) { // Only add logs until we reach the amount specified
@@ -200,13 +202,20 @@ public class QueryController {
                         .append(e.getMessage())
                         .append("\r\n");
             }
+
+            lastEntryId = NectarServerApplication.getEventLog().getEntries().getLast().getEntryId();
         }
 
-        return ResponseEntity.ok(sb.toString());
+        JSONObject root = new JSONObject();
+        root.put("lastEntryId", lastEntryId);
+        root.put("entries", sb.toString());
+
+        return ResponseEntity.ok(root.toJSONString());
     }
 
+    @SuppressWarnings("unchecked")
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/query/queryEventLogSince")
-    public ResponseEntity queryEventLogSince(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "timestamp") long timestamp,
+    public ResponseEntity queryEventLogSince(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "entryId") int entryId,
                                              HttpServletRequest request) {
         ManagementSessionToken token = ManagementSessionToken.fromJSON(Util.getJWTPayload(jwtRaw));
         if(token == null)
@@ -218,20 +227,30 @@ public class QueryController {
 
         StringBuilder sb = new StringBuilder();
 
+        int lastEntryId = entryId;
         synchronized (NectarServerApplication.getEventLog().getEntries()) {
-            NectarServerApplication.getEventLog().getEntries().iterator().forEachRemaining((EventLog.Entry e) -> {
-                long epochTimestamp = e.getDatetime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-                if(epochTimestamp >= timestamp) { // It's after the timestamp we were provided with, so add it
+            for(EventLog.Entry e : NectarServerApplication.getEventLog().getEntries()) {
+                if(e.getEntryId() > entryId) { // It's after the entryId provided, so add it
                     sb.append(e.getDatetime().toString())
                             .append(" [")
                             .append(e.getLevel().name())
                             .append("]: ")
                             .append(e.getMessage())
                             .append("\r\n");
+
+                    // Attempt to find the lastest entry's entryID, by continuing to check if it's greater than
+                    // the last greater one found.
+                    if(e.getEntryId() > lastEntryId) {
+                        lastEntryId = e.getEntryId();
+                    }
                 }
-            });
+            }
         }
 
-        return ResponseEntity.ok(sb.toString());
+        JSONObject root = new JSONObject();
+        root.put("lastEntryId", lastEntryId);
+        root.put("entries", sb.toString());
+
+        return ResponseEntity.ok(root.toJSONString());
     }
 }

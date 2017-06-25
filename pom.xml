@@ -37,7 +37,7 @@
 
     <groupId>io.github.jython234.nectar.server</groupId>
     <artifactId>Nectar-Server</artifactId>
-    <version>0.5.1-SNAPSHOT</version>
+    <version>0.6.1-SNAPSHOT</version>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
