@@ -70,6 +70,8 @@ public class NectarServerConfiguration {
     @Getter private String serverPublicKeyLocation;
     @Getter private String clientPublicKeyLocation;
 
+    @Getter private boolean clientExecutableUpdatingEnabled;
+
     @Getter private ECPrivateKey serverPrivateKey;
     @Getter private ECPublicKey serverPublicKey;
 
@@ -93,6 +95,8 @@ public class NectarServerConfiguration {
         this.serverPrivateKeyLocation = config.get("security").get("serverPrivateKey");
         this.serverPublicKeyLocation = config.get("security").get("serverPublicKey");
         this.clientPublicKeyLocation = config.get("security").get("clientPublicKey");
+
+        this.clientExecutableUpdatingEnabled = Boolean.parseBoolean(config.get("security").get("clientExecutableUpdatingEnabled"));
 
         // Convert key locations to absolute paths if relative to config dir
 

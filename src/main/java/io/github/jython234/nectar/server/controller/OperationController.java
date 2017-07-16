@@ -122,6 +122,12 @@ public class OperationController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid operation ID.");
             }
 
+            if(opId == OperationID.OPERATION_UPDATE_CLIENT_EXECUTABLE && !NectarServerApplication.getConfiguration().isClientExecutableUpdatingEnabled()) {
+                NectarServerApplication.getEventLog().logEntry(EventLog.EntryLevel.NOTICE, "Client Executable Update operation attempt from "
+                        + request.getRemoteAddr() + ", but client executable updating is disabled on this server.");
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Client Executable Updating is not enabled on this server.");
+            }
+
             JSONArray targetsArray = (JSONArray) obj.get("targets");
             JSONObject additionalData = (JSONObject) obj.getOrDefault("additionalData", new JSONObject());
 

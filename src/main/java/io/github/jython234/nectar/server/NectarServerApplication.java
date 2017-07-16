@@ -28,6 +28,7 @@
  */
 package io.github.jython234.nectar.server;
 
+import ch.qos.logback.classic.Level;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import io.github.jython234.nectar.server.controller.FTSController;
@@ -64,10 +65,10 @@ import java.util.UUID;
 @EnableAsync
 public class NectarServerApplication {
     public static final String SOFTWARE = "Nectar-Server";
-    public static final String SOFTWARE_VERSION = "0.6.1-SNAPSHOT";
+    public static final String SOFTWARE_VERSION = "0.6.2-SNAPSHOT";
 
     public static final int API_VERSION_MAJOR = 6;
-    public static final int API_VERSION_MINOR = 1;
+    public static final int API_VERSION_MINOR = 2;
     public static final String ROOT_PATH_REAL = "/nectar/api/";
     public static final String ROOT_PATH = ROOT_PATH_REAL + "v/" + API_VERSION_MAJOR + "/" + API_VERSION_MINOR;
 
@@ -87,6 +88,8 @@ public class NectarServerApplication {
     @Getter private static NectarServerConfiguration configuration;
 
     public static void main(String[] args) {
+        setMongoLogLevels();
+
         threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
         threadPoolTaskExecutor.setCorePoolSize(Runtime.getRuntime().availableProcessors());
         threadPoolTaskExecutor.setMaxPoolSize(Runtime.getRuntime().availableProcessors() * 2);
@@ -167,6 +170,13 @@ public class NectarServerApplication {
             configDir = "/etc/nectar-server/"; // TODO: Windows Support
         } else {
             configDir = System.getProperty("user.dir");
+        }
+    }
+
+    private static void setMongoLogLevels() {
+        if(!(Boolean.parseBoolean(System.getenv("NECTAR_MONGO_DEBUG")))) {
+            ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.mongodb.driver.protocol.command")).setLevel(Level.OFF);
+            ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.mongodb.driver.cluster")).setLevel(Level.OFF);
         }
     }
 
