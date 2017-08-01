@@ -632,7 +632,7 @@ public class FTSController {
         List<IndexJSON> list = new ArrayList();
 
         index.find(Filters.eq("isPublic", isPublic)).forEach((Consumer<? super Document>) (Document doc) -> {
-            if(doc.getString("storePath").startsWith(loggedInUser) && !isPublic) {
+            if(loggedInUser != null && doc.getString("storePath").startsWith(loggedInUser) && !isPublic) {
                 // It's the user store
                 list.add(
                         new IndexJSON(doc.getString("storePath"), doc.getString("checksum"), doc.getString("lastUpdatedBy")));
