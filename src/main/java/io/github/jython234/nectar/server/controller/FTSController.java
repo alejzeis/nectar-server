@@ -56,6 +56,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -286,7 +287,7 @@ public class FTSController {
 
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/fts/download")
     public void download(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "public") boolean isPublic
-                                    , @RequestParam(value = "path") String path, HttpServletRequest request, HttpServletResponse response) {
+                                    , @RequestParam(value = "path") String pathB64, HttpServletRequest request, HttpServletResponse response) {
         ResponseEntity r = Util.verifyJWT(jwtRaw, request);
         if (r != null) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
@@ -299,6 +300,8 @@ public class FTSController {
             // INVALID TOKENTYPE
             return;
         }
+
+        String path = new String(Base64.getUrlDecoder().decode(pathB64));
 
         if(SessionController.getInstance().checkToken(token)) {
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
@@ -361,7 +364,7 @@ public class FTSController {
 
     @RequestMapping(NectarServerApplication.ROOT_PATH + "/fts/downloadDelta")
     public void downloadDelta(@RequestParam(value = "token") String jwtRaw, @RequestParam(value = "public") boolean isPublic
-            , @RequestParam(value = "path") String path, HttpServletRequest request, HttpServletResponse response) {
+            , @RequestParam(value = "path") String pathB64, HttpServletRequest request, HttpServletResponse response) {
         ResponseEntity r = Util.verifyJWT(jwtRaw, request);
         if (r != null) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
@@ -374,6 +377,8 @@ public class FTSController {
             // INVALID TOKENTYPE
             return;
         }
+
+        String path = new String(Base64.getUrlDecoder().decode(pathB64));
 
         if(SessionController.getInstance().checkToken(token)) {
             MongoCollection<Document> clients = NectarServerApplication.getDb().getCollection("clients");
